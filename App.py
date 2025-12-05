@@ -12,7 +12,7 @@ def check_password():
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.title("Finance Tracker Login")
+        st.title("Finance Tracker Login 🔐")
         pwd = st.text_input("Enter password", type="password")
         if st.button("Login"):
             if pwd == PASSWORD:
@@ -25,9 +25,6 @@ def check_password():
 
 check_password()
 # ---------- END PASSWORD PROTECTION ----------
-
-# When running on Streamlit Cloud, actual files may be ephemeral.
-# We'll still use CSVs, but you can download them regularly as backup.
 
 TRANSACTIONS_FILE = Path("transactions.csv")
 DEBTS_FILE = Path("debts.csv")
@@ -59,7 +56,6 @@ DEBT_COLUMNS = [
 def load_df(path: Path, columns):
     if path.exists():
         df = pd.read_csv(path)
-        # try to parse date-like columns if present
         for col in ["date", "start_date", "created_at"]:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="ignore")
@@ -73,11 +69,44 @@ def save_df(df: pd.DataFrame, path: Path):
 
 
 def ensure_files():
-    # create empty files if not exist
     if not TRANSACTIONS_FILE.exists():
         save_df(pd.DataFrame(columns=TRANSACTION_COLUMNS), TRANSACTIONS_FILE)
     if not DEBTS_FILE.exists():
         save_df(pd.DataFrame(columns=DEBT_COLUMNS), DEBTS_FILE)
+
+
+def get_month_options(transactions: pd.DataFrame):
+    """
+    Returns list like ["All time", "2025-12", "2025-11", ...]
+    """
+    if transactions.empty or "date" not in transactions.columns:
+        return ["All time"]
+
+    df = transactions.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+
+    if df.empty:
+        return ["All time"]
+
+    df["year_month"] = df["date"].dt.to_period("M").astype(str)
+    months = sorted(df["year_month"].unique(), reverse=True)
+    return ["All time"] + months
+
+
+def filter_by_month(transactions: pd.DataFrame, selected_month: str):
+    """
+    Filter transactions to selected month.
+    If "All time" is selected, return original.
+    """
+    if selected_month == "All time" or transactions.empty or "date" not in transactions.columns:
+        return transactions
+
+    df = transactions.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    df["year_month"] = df["date"].dt.to_period("M").astype(str)
+    return df[df["year_month"] == selected_month]
 
 
 def main():
@@ -89,17 +118,28 @@ def main():
 
     ensure_files()
 
-    st.sidebar.title("Personal Finance Tracker")
-    menu = st.sidebar.radio(
-        "Go to",
-        ["Add Entry", "Summary Dashboard", "Transactions", "Debts & EMIs", "Savings Overview", "Help"],
-    )
-
     transactions = load_df(TRANSACTIONS_FILE, TRANSACTION_COLUMNS)
     debts = load_df(DEBTS_FILE, DEBT_COLUMNS)
 
-    # 🔽 Backup buttons in sidebar
-    with st.sidebar.expander("Backup Data (CSV)"):
+    # ---------- SIDEBAR ----------
+    st.sidebar.title("💰 Finance Cockpit")
+
+    # Month filter (global)
+    month_options = get_month_options(transactions)
+    selected_month = st.sidebar.selectbox("Filter by month", month_options)
+    if selected_month == "All time":
+        st.sidebar.caption("Showing data for all time.")
+    else:
+        st.sidebar.caption(f"Showing data for: **{selected_month}**")
+
+    menu = st.sidebar.radio(
+        "Navigate",
+        ["Add Entry", "Summary Dashboard", "Transactions", "Debts & EMIs", "Savings Overview", "Help"],
+    )
+
+    # Backup buttons in sidebar
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("📦 Backup Data (CSV)"):
         if not transactions.empty:
             tx_csv = transactions.to_csv(index=False).encode("utf-8")
             st.download_button(
@@ -122,22 +162,28 @@ def main():
         else:
             st.caption("No debts to download yet.")
 
+    # Filtered df for month-aware pages
+    tx_filtered = filter_by_month(transactions, selected_month)
+
+    # ---------- ROUTING ----------
     if menu == "Add Entry":
         page_add_entry(transactions, debts)
     elif menu == "Summary Dashboard":
-        page_summary(transactions, debts)
+        page_summary(transactions, tx_filtered, debts, selected_month)
     elif menu == "Transactions":
-        page_transactions(transactions)
+        page_transactions(tx_filtered, selected_month)
     elif menu == "Debts & EMIs":
-        page_debts(transactions, debts)
+        page_debts(transactions, tx_filtered, debts, selected_month)
     elif menu == "Savings Overview":
-        page_savings(transactions)
+        page_savings(tx_filtered, selected_month)
     else:
         page_help()
 
 
+# ---------- PAGES ----------
+
 def page_add_entry(transactions: pd.DataFrame, debts: pd.DataFrame):
-    st.header("Add New Entry")
+    st.header("➕ Add New Entry")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -194,7 +240,7 @@ def page_add_entry(transactions: pd.DataFrame, debts: pd.DataFrame):
         account = st.text_input("Account / Instrument (Bank, Fund name etc.)", "")
         category = "Savings"
 
-    if st.button("Save Entry"):
+    if st.button("💾 Save Entry"):
         if amount <= 0:
             st.error("Amount must be greater than 0.")
             return
@@ -217,101 +263,178 @@ def page_add_entry(transactions: pd.DataFrame, debts: pd.DataFrame):
             ignore_index=True,
         )
         save_df(transactions, TRANSACTIONS_FILE)
-        st.success("Entry saved successfully.")
+        st.success("Entry saved successfully ✅")
 
 
-def page_summary(transactions: pd.DataFrame, debts: pd.DataFrame):
-    st.header("Summary Dashboard")
+def page_summary(all_tx: pd.DataFrame, tx_filtered: pd.DataFrame, debts: pd.DataFrame, selected_month: str):
+    st.header("📊 Summary Dashboard")
 
-    if transactions.empty:
+    if all_tx.empty:
         st.info("No transactions yet. Add your first entry in 'Add Entry' page.")
         return
 
-    df = transactions.copy()
-    df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
+    # Prepare data
+    df_all = all_tx.copy()
+    df_all["amount"] = pd.to_numeric(df_all["amount"], errors="coerce").fillna(0)
 
-    total_income = df.loc[df["type"] == "Income", "amount"].sum()
-    total_expense = df.loc[df["type"] == "Expense", "amount"].sum()
-    total_debt_paid = df.loc[df["type"] == "Debt Payment", "amount"].sum()
-    total_savings = df.loc[df["type"] == "Savings Deposit", "amount"].sum()
+    df_sel = tx_filtered.copy()
+    df_sel["amount"] = pd.to_numeric(df_sel["amount"], errors="coerce").fillna(0)
 
-    net_balance = total_income - (total_expense + total_debt_paid + total_savings)
+    # All-time metrics
+    all_income = df_all.loc[df_all["type"] == "Income", "amount"].sum()
+    all_expense = df_all.loc[df_all["type"] == "Expense", "amount"].sum()
+    all_debt_paid = df_all.loc[df_all["type"] == "Debt Payment", "amount"].sum()
+    all_savings = df_all.loc[df_all["type"] == "Savings Deposit", "amount"].sum()
+    all_net = all_income - (all_expense + all_debt_paid + all_savings)
 
+    # Selected-period metrics
+    sel_income = df_sel.loc[df_sel["type"] == "Income", "amount"].sum()
+    sel_expense = df_sel.loc[df_sel["type"] == "Expense", "amount"].sum()
+    sel_debt_paid = df_sel.loc[df_sel["type"] == "Debt Payment", "amount"].sum()
+    sel_savings = df_sel.loc[df_sel["type"] == "Savings Deposit", "amount"].sum()
+    sel_net = sel_income - (sel_expense + sel_debt_paid + sel_savings)
+
+    label_period = "All time" if selected_month == "All time" else selected_month
+
+    # Top row: selected period metrics
+    st.subheader(f"Overview for: {label_period}")
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Total Income", f"Rs {total_income:,.0f}")
-    c2.metric("Total Expenses", f"Rs {total_expense:,.0f}")
-    c3.metric("Debt Paid", f"Rs {total_debt_paid:,.0f}")
-    c4.metric("Savings Deposited", f"Rs {total_savings:,.0f}")
-    c5.metric("Net Balance", f"Rs {net_balance:,.0f}")
+    c1.metric("Income", f"₹ {sel_income:,.0f}")
+    c2.metric("Expenses", f"₹ {sel_expense:,.0f}")
+    c3.metric("Debt Paid", f"₹ {sel_debt_paid:,.0f}")
+    c4.metric("Savings", f"₹ {sel_savings:,.0f}")
+    c5.metric("Net Balance", f"₹ {sel_net:,.0f}")
+
+    # Second row: all-time snapshot (mini)
+    st.caption("All-time snapshot")
+    c6, c7, c8 = st.columns(3)
+    c6.metric("All-time Income", f"₹ {all_income:,.0f}")
+    c7.metric("All-time Debt Paid", f"₹ {all_debt_paid:,.0f}")
+    c8.metric("All-time Net Worth Flow", f"₹ {all_net:,.0f}")
 
     st.markdown("---")
-    col_left, col_right = st.columns(2)
 
-    with col_left:
-        st.subheader("Expenses by Category")
-        expense_df = df[df["type"] == "Expense"]
-        if not expense_df.empty:
-            cat_summary = (
-                expense_df.groupby("category")["amount"]
-                .sum()
-                .sort_values(ascending=False)
-            )
-            st.bar_chart(cat_summary)
+    # Tabs for insights / charts
+    tab1, tab2, tab3 = st.tabs(["💡 Insights", "📈 Charts", "📅 Monthly Trend"])
+
+    # ---------- INSIGHTS TAB ----------
+    with tab1:
+        st.subheader("Smart Insights")
+
+        # Approx daily burn rate for period
+        if not df_sel.empty:
+            df_sel["date"] = pd.to_datetime(df_sel["date"], errors="coerce")
+            dmin, dmax = df_sel["date"].min(), df_sel["date"].max()
+            day_diff = (dmax - dmin).days + 1
+            total_spend = sel_expense + sel_debt_paid + sel_savings
+            daily_burn = total_spend / max(day_diff, 1)
         else:
-            st.caption("No expenses recorded yet.")
+            daily_burn = 0
+            total_spend = 0
 
-    with col_right:
-        st.subheader("Savings by Type")
-        savings_df = df[df["type"] == "Savings Deposit"]
-        if not savings_df.empty:
-            sav_summary = (
-                savings_df.groupby("savings_type")["amount"]
-                .sum()
-                .sort_values(ascending=False)
-            )
-            st.bar_chart(sav_summary)
+        colA, colB = st.columns(2)
+        with colA:
+            st.metric("Daily Burn (Expense + Debt + Savings)", f"₹ {daily_burn:,.0f}")
+        with colB:
+            if sel_income > 0:
+                savings_rate = (sel_savings / sel_income) * 100
+                debt_share = (sel_debt_paid / sel_income) * 100
+            else:
+                savings_rate = 0
+                debt_share = 0
+            st.metric("Savings Rate (of income)", f"{savings_rate:,.1f}%")
+
+        # Simple "financial vibe" score (0–100)
+        score = 50
+        if sel_income > 0:
+            margin_ratio = sel_net / sel_income
+            savings_ratio = sel_savings / sel_income
+            score = 50 + margin_ratio * 30 + savings_ratio * 20
+        score = max(0, min(100, score))
+
+        st.markdown("### Financial Health Score (experimental)")
+        st.progress(score / 100)
+        if score >= 75:
+            st.success("Looking strong! You’re controlling your money, not the other way around 😎")
+        elif score >= 50:
+            st.info("Decent zone. A bit more control on expenses and steady savings will push you higher 👍")
         else:
-            st.caption("No savings recorded yet.")
+            st.warning("Alert zone. Try to reduce expenses or debt for this period and boost savings a little 🚀")
 
-    st.markdown("---")
-    st.subheader("Monthly Cash Flow")
+    # ---------- CHARTS TAB ----------
+    with tab2:
+        st.subheader("Breakdown Charts")
 
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        df["year_month"] = df["date"].dt.to_period("M").astype(str)
+        col_left, col_right = st.columns(2)
 
-        month_summary = (
-            df.pivot_table(
-                index="year_month",
-                columns="type",
-                values="amount",
-                aggfunc="sum",
+        with col_left:
+            st.markdown("#### Expenses by Category")
+            expense_df = df_sel[df_sel["type"] == "Expense"]
+            if not expense_df.empty:
+                cat_summary = (
+                    expense_df.groupby("category")["amount"]
+                    .sum()
+                    .sort_values(ascending=False)
+                )
+                st.bar_chart(cat_summary)
+            else:
+                st.caption("No expenses in this period.")
+
+        with col_right:
+            st.markdown("#### Savings by Type")
+            savings_df = df_sel[df_sel["type"] == "Savings Deposit"]
+            if not savings_df.empty:
+                sav_summary = (
+                    savings_df.groupby("savings_type")["amount"]
+                    .sum()
+                    .sort_values(ascending=False)
+                )
+                st.bar_chart(sav_summary)
+            else:
+                st.caption("No savings in this period.")
+
+    # ---------- MONTHLY TREND TAB ----------
+    with tab3:
+        st.subheader("Monthly Cash Flow (All time)")
+
+        if "date" in df_all.columns:
+            df_all["date"] = pd.to_datetime(df_all["date"], errors="coerce")
+            df_all = df_all.dropna(subset=["date"])
+            df_all["year_month"] = df_all["date"].dt.to_period("M").astype(str)
+
+            month_summary = (
+                df_all.pivot_table(
+                    index="year_month",
+                    columns="type",
+                    values="amount",
+                    aggfunc="sum",
+                )
+                .fillna(0)
+                .sort_index()
             )
-            .fillna(0)
-            .sort_index()
-        )
 
-        st.line_chart(month_summary)
-    else:
-        st.caption("No date information available.")
+            st.line_chart(month_summary)
+        else:
+            st.caption("No date information available.")
 
 
-def page_transactions(transactions: pd.DataFrame):
-    st.header("All Transactions")
+def page_transactions(tx_filtered: pd.DataFrame, selected_month: str):
+    label_period = "All time" if selected_month == "All time" else selected_month
+    st.header(f"📜 Transactions – {label_period}")
 
-    if transactions.empty:
-        st.info("No transactions yet.")
+    if tx_filtered.empty:
+        st.info("No transactions for this period.")
         return
 
-    df = transactions.copy()
+    df = tx_filtered.copy()
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
 
     st.dataframe(df.sort_values("date", ascending=False), use_container_width=True)
 
 
-def page_debts(transactions: pd.DataFrame, debts: pd.DataFrame):
-    st.header("Debts and EMIs")
+def page_debts(all_tx: pd.DataFrame, tx_filtered: pd.DataFrame, debts: pd.DataFrame, selected_month: str):
+    st.header("💳 Debts and EMIs")
 
     # Form to add new debt
     with st.expander("Add or Update a Debt"):
@@ -326,7 +449,7 @@ def page_debts(transactions: pd.DataFrame, debts: pd.DataFrame):
             start_date = st.date_input("Start Date", value=date.today())
         notes = st.text_area("Notes", "")
 
-        if st.button("Save Debt"):
+        if st.button("💾 Save Debt"):
             if debt_name.strip() == "" or start_amount <= 0:
                 st.error("Debt name and original amount are required.")
             else:
@@ -347,7 +470,7 @@ def page_debts(transactions: pd.DataFrame, debts: pd.DataFrame):
                     debts = pd.concat([debts, pd.DataFrame([new_debt])], ignore_index=True)
 
                 save_df(debts, DEBTS_FILE)
-                st.success("Debt saved or updated successfully.")
+                st.success("Debt saved or updated successfully ✅")
 
     st.markdown("### Current Debts Summary")
 
@@ -357,15 +480,16 @@ def page_debts(transactions: pd.DataFrame, debts: pd.DataFrame):
 
     df_debts = debts.copy()
 
-    df_tx = transactions.copy()
-    df_tx["amount"] = pd.to_numeric(df_tx["amount"], errors="coerce").fillna(0)
-    debt_payments = (
-        df_tx[df_tx["type"] == "Debt Payment"]
+    # All-time debt payments for balance
+    df_all_tx = all_tx.copy()
+    df_all_tx["amount"] = pd.to_numeric(df_all_tx["amount"], errors="coerce").fillna(0)
+    debt_payments_all = (
+        df_all_tx[df_all_tx["type"] == "Debt Payment"]
         .groupby("debt_name")["amount"]
         .sum()
     )
 
-    df_debts["paid_so_far"] = df_debts["debt_name"].map(debt_payments).fillna(0.0)
+    df_debts["paid_so_far"] = df_debts["debt_name"].map(debt_payments_all).fillna(0.0)
     df_debts["balance"] = df_debts["start_amount"] - df_debts["paid_so_far"]
     df_debts["progress"] = (df_debts["paid_so_far"] / df_debts["start_amount"]).fillna(0.0)
 
@@ -381,27 +505,47 @@ def page_debts(transactions: pd.DataFrame, debts: pd.DataFrame):
     ]
     st.dataframe(df_debts[show_cols], use_container_width=True)
 
-    st.markdown("### Payoff Progress")
+    st.markdown("### Payoff Progress (All time)")
     for _, row in df_debts.iterrows():
         st.write(
-            f"{row['debt_name']} - Paid: Rs {row['paid_so_far']:,.0f} / Rs {row['start_amount']:,.0f}"
+            f"{row['debt_name']} - Paid: ₹ {row['paid_so_far']:,.0f} / ₹ {row['start_amount']:,.0f}"
         )
         st.progress(min(max(row["progress"], 0.0), 1.0))
 
+    # Selected period debt payments (futuristic insight)
+    st.markdown("---")
+    label_period = "All time" if selected_month == "All time" else selected_month
+    st.subheader(f"Debt Payments in {label_period}")
 
-def page_savings(transactions: pd.DataFrame):
-    st.header("Savings Overview")
+    df_sel = tx_filtered.copy()
+    df_sel["amount"] = pd.to_numeric(df_sel["amount"], errors="coerce").fillna(0)
+    sel_debt_pay = df_sel[df_sel["type"] == "Debt Payment"]
+    if sel_debt_pay.empty:
+        st.caption("No debt payments logged for this period.")
+    else:
+        grp = (
+            sel_debt_pay.groupby("debt_name")["amount"]
+            .sum()
+            .reset_index()
+            .sort_values("amount", ascending=False)
+        )
+        st.dataframe(grp, use_container_width=True)
 
-    if transactions.empty:
-        st.info("No transactions yet.")
+
+def page_savings(tx_filtered: pd.DataFrame, selected_month: str):
+    label_period = "All time" if selected_month == "All time" else selected_month
+    st.header(f"🏦 Savings Overview – {label_period}")
+
+    if tx_filtered.empty:
+        st.info("No transactions for this period.")
         return
 
-    df = transactions.copy()
+    df = tx_filtered.copy()
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
 
     savings_df = df[df["type"] == "Savings Deposit"]
     if savings_df.empty:
-        st.info("No savings deposits recorded yet.")
+        st.info("No savings deposits recorded for this period.")
         return
 
     st.subheader("Savings by Type and Account")
@@ -413,40 +557,49 @@ def page_savings(transactions: pd.DataFrame):
     )
     st.dataframe(group, use_container_width=True)
 
-    st.subheader("Total Savings")
+    st.subheader("Total Savings in this Period")
     total_savings = savings_df["amount"].sum()
-    st.metric("Total Saved", f"Rs {total_savings:,.0f}")
+    st.metric("Total Saved", f"₹ {total_savings:,.0f}")
 
 
 def page_help():
-    st.header("How to Use This App")
+    st.header("ℹ️ How to Use This App")
 
     st.markdown(
         """
-1. **Add Entry**  
-   - Income: salary, freelance, gift, etc.  
-   - Expense: daily spending (food, rent, petrol, etc.)  
-   - Debt Payment: EMIs, credit card payments.  
-   - Savings Deposit: money moved to FD, SIP, emergency fund, etc.
+### 1. Month Filter (top-left sidebar)
+- Choose **All time** or a specific month (e.g. `2025-12`).
+- All main pages (Summary, Transactions, Debts, Savings) adapt to this filter.
 
-2. **Summary Dashboard**  
-   - Shows totals of Income, Expenses, Debt Paid, Savings.  
-   - Net Balance = Income - (Expenses + Debt + Savings).  
-   - Charts for expenses by category, savings by type, and monthly trends.
+### 2. Add Entry  
+- **Income**: salary, freelance, gift, etc.  
+- **Expense**: daily spending (food, rent, petrol, etc.)  
+- **Debt Payment**: EMIs, credit card payments.  
+- **Savings Deposit**: money moved to FD, SIP, emergency fund, etc.
 
-3. **Debts and EMIs**  
-   - First add each loan with original amount, interest, EMI.  
-   - Whenever you pay any EMI, log it as *Debt Payment* in **Add Entry**.  
-   - The app tracks paid so far and remaining balance.
+### 3. Summary Dashboard  
+- Shows **selected-period** metrics + **all-time** snapshot.  
+- Smart insights:
+  - Daily burn rate (expense + debt + savings).
+  - Savings rate (how much of income is going to savings).
+  - Experimental **Financial Health Score**.
 
-4. **Savings Overview**  
-   - Shows how much you have saved by type and by account (bank, SIP, etc.).
+### 4. Debts and EMIs  
+- Add each loan with original amount, interest, EMI.  
+- Whenever you pay any EMI, log it as *Debt Payment* in **Add Entry**.  
+- All-time progress bars show how close you are to being debt-free.  
+- You can also see what you paid towards debt in the **selected period**.
 
-5. **Backup**  
-   - Use the sidebar **Backup Data (CSV)** section to download:  
-     - `transactions.csv`  
-     - `debts.csv`  
-   - Store them in Google Drive or phone storage for safety.
+### 5. Savings Overview  
+- Shows how much you saved in the chosen period, grouped by type and account.  
+
+### 6. Backup  
+- Use sidebar **📦 Backup Data (CSV)** to download:
+  - `transactions.csv`  
+  - `debts.csv`  
+- Store them in Google Drive / phone for safety.
+
+This is your personal **finance cockpit** – income, expenses, debt and savings in one futuristic view 🚀
 """
     )
 
