@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date, datetime
 
 # ---------- SIMPLE PASSWORD PROTECTION ----------
-PASSWORD = "mysecret123"  # 🔴 CHANGE THIS to your own strong password
+PASSWORD = "Blackbird@786"  # 🔴 CHANGE THIS to your own strong password
 
 
 def check_password():
