@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import date, datetime
+import math
 
-# ================== PASSWORD ==================
+# ================= PASSWORD =================
 PASSWORD = "CHANGE_THIS_PASSWORD"
 
-def check_password():
+def login():
     if "auth" not in st.session_state:
         st.session_state.auth = False
     if not st.session_state.auth:
@@ -17,25 +18,26 @@ def check_password():
                 st.session_state.auth = True
                 st.rerun()
             else:
-                st.error("Wrong password")
+                st.error("Incorrect password")
         st.stop()
 
-check_password()
+login()
 
-# ================== FILES =====================
+# ================= FILES ====================
 BASE = Path(".")
 TX_FILE = BASE / "transactions.csv"
-DEBT_FILE = BASE / "debts.csv"
 BUDGET_FILE = BASE / "budgets.csv"
+RECUR_FILE = BASE / "recurring.csv"
 
-TX_COLS = ["date","type","category","description","amount","created_at"]
-DEBT_COLS = ["debt_name","lender","amount"]
+TX_COLS = ["date","type","category","description","amount"]
 BUDGET_COLS = ["category","monthly_budget"]
+RECUR_COLS = ["name","type","category","amount","day"]
 
 def load(path, cols):
     if path.exists():
         df = pd.read_csv(path)
-        if "date" in df: df["date"] = pd.to_datetime(df["date"])
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
         return df
     return pd.DataFrame(columns=cols)
 
@@ -43,163 +45,187 @@ def save(df, path):
     df.to_csv(path, index=False)
 
 if not TX_FILE.exists(): save(pd.DataFrame(columns=TX_COLS), TX_FILE)
-if not DEBT_FILE.exists(): save(pd.DataFrame(columns=DEBT_COLS), DEBT_FILE)
 if not BUDGET_FILE.exists(): save(pd.DataFrame(columns=BUDGET_COLS), BUDGET_FILE)
+if not RECUR_FILE.exists(): save(pd.DataFrame(columns=RECUR_COLS), RECUR_FILE)
 
 tx = load(TX_FILE, TX_COLS)
-debts = load(DEBT_FILE, DEBT_COLS)
 budgets = load(BUDGET_FILE, BUDGET_COLS)
+recurring = load(RECUR_FILE, RECUR_COLS)
 
-# ================== STATE =====================
+# ================= STATE ====================
 if "tab" not in st.session_state:
     st.session_state.tab = "Summary"
 
-# ================== HELPERS ===================
-def month_filter(df, m):
-    if m == "All time": return df
-    df["ym"] = df["date"].dt.to_period("M").astype(str)
-    return df[df["ym"] == m]
-
+# ================= MONTH FILTER =============
 months = ["All time"]
 if not tx.empty:
     months += sorted(tx["date"].dt.to_period("M").astype(str).unique(), reverse=True)
 
 month = st.sidebar.selectbox("📅 Month", months)
 
-tx_m = month_filter(tx.copy(), month)
+def filter_month(df, m):
+    if m == "All time":
+        return df
+    df["ym"] = df["date"].dt.to_period("M").astype(str)
+    return df[df["ym"] == m]
 
+tx_m = filter_month(tx.copy(), month)
+
+# ================= HELPERS ==================
 def total(t):
-    return tx_m[tx_m["type"] == t]["amount"].sum()
+    return tx_m[tx_m.type == t].amount.sum()
 
 today = pd.Timestamp(date.today())
-tx_today = tx[tx["date"].dt.date == today.date()]
+tx_today = tx[tx.date.dt.date == today.date()]
 
-# ================== UI ========================
+# ================= NET WORTH ================
+def net_worth(df):
+    df = df.copy()
+    df["ym"] = df["date"].dt.to_period("M")
+    p = df.pivot_table(index="ym", columns="type", values="amount", aggfunc="sum").fillna(0)
+    p["NetWorth"] = (
+        p.get("Income",0).cumsum()
+        + p.get("Savings",0).cumsum()
+        - p.get("Expense",0).cumsum()
+        - p.get("Debt",0).cumsum()
+    )
+    return p.reset_index()
+
+nw = net_worth(tx)
+
+# ================= UI =======================
 st.set_page_config("Finance Tracker", "💰", layout="wide")
 st.title("💰 Personal Finance Tracker")
 
-tabs = ["Summary","Add Entry","Transactions","Debts","Savings","Budgets","Help"]
-icons = ["📊","➕","📜","💳","🏦","🎯","ℹ️"]
+tabs = ["Summary","Add Entry","Transactions","Budgets","Recurring","Help"]
+icons = ["📊","➕","📜","🎯","🔁","ℹ️"]
 tab_objs = st.tabs([f"{i} {t}" for i,t in zip(icons,tabs)])
-tab_map = dict(zip(tabs, tab_objs))
+T = dict(zip(tabs, tab_objs))
 
-# ================== SUMMARY ===================
-with tab_map["Summary"]:
+# ================= SUMMARY ==================
+with T["Summary"]:
     st.session_state.tab = "Summary"
 
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Income", f"₹{total('Income'):,.0f}")
     c2.metric("Expense", f"₹{total('Expense'):,.0f}")
-    c3.metric("Debt Paid", f"₹{total('Debt'):,.0f}")
+    c3.metric("Debt", f"₹{total('Debt'):,.0f}")
     c4.metric("Savings", f"₹{total('Savings'):,.0f}")
 
-    st.markdown("### 📅 Today")
-    t1,t2,t3 = st.columns(3)
-    t1.metric("Today Expense", f"₹{tx_today[tx_today.type=='Expense'].amount.sum():,.0f}")
-    t2.metric("Today Debt", f"₹{tx_today[tx_today.type=='Debt'].amount.sum():,.0f}")
-    t3.metric("Today Savings", f"₹{tx_today[tx_today.type=='Savings'].amount.sum():,.0f}")
+    st.subheader("📅 Today")
+    d1,d2,d3 = st.columns(3)
+    d1.metric("Expense", f"₹{tx_today[tx_today.type=='Expense'].amount.sum():,.0f}")
+    d2.metric("Debt", f"₹{tx_today[tx_today.type=='Debt'].amount.sum():,.0f}")
+    d3.metric("Savings", f"₹{tx_today[tx_today.type=='Savings'].amount.sum():,.0f}")
 
-    st.markdown("---")
+    st.subheader("🚨 Alerts")
+    for _, b in budgets.iterrows():
+        spent = tx_m[(tx_m.type=="Expense")&(tx_m.category==b.category)].amount.sum()
+        if spent >= b.monthly_budget:
+            st.error(f"{b.category} budget exceeded")
+        elif spent >= 0.8*b.monthly_budget:
+            st.warning(f"{b.category} budget 80% used")
 
-    st.markdown("### ⚡ Quick Add Expense")
+    if total("Expense")+total("Debt")+total("Savings") > total("Income"):
+        st.error("Negative cash flow this month")
+
+    st.subheader("📈 Charts")
+    st.bar_chart(tx_m.groupby("type")["amount"].sum())
+    st.bar_chart(tx_m[tx_m.type=="Expense"].groupby("category")["amount"].sum())
+
+    st.subheader("💰 Net Worth")
+    if not nw.empty:
+        st.line_chart(nw.set_index("ym")["NetWorth"])
+        st.metric("Current Net Worth", f"₹{nw.iloc[-1].NetWorth:,.0f}")
+
+    st.subheader("⚡ Quick Add Expense")
     with st.form("quick"):
-        qa = st.number_input("Amount", min_value=0.0, step=50.0)
+        qa = st.number_input("Amount", 0.0)
         qc = st.text_input("Category")
         if st.form_submit_button("Add"):
             tx = pd.concat([tx, pd.DataFrame([{
                 "date": today,
                 "type": "Expense",
                 "category": qc,
-                "description": "Quick add",
-                "amount": qa,
-                "created_at": datetime.now()
+                "description": "Quick",
+                "amount": qa
             }])])
             save(tx, TX_FILE)
-            st.success("Added")
             st.rerun()
 
-    st.markdown("---")
-
-    if total("Income") > 0:
-        savings_rate = (total("Savings") / total("Income")) * 100
-        burn = (total("Expense") + total("Debt") + total("Savings")) / max(1, len(tx_m))
-        score = min(100, max(0, 50 + savings_rate - burn/500))
-        st.metric("Savings Rate", f"{savings_rate:.1f}%")
-        st.progress(score/100)
-        st.caption("Financial Health Score")
-
-# ================== ADD ENTRY =================
-with tab_map["Add Entry"]:
-    st.session_state.tab = "Add Entry"
-
+# ================= ADD ENTRY ================
+with T["Add Entry"]:
     with st.form("add"):
         t = st.selectbox("Type", ["Expense","Income","Debt","Savings"])
-        amt = st.number_input("Amount", min_value=0.0)
-        cat = st.text_input("Category")
+        a = st.number_input("Amount", 0.0)
+        c = st.text_input("Category")
+        d = st.text_input("Description")
         if st.form_submit_button("Save"):
             tx = pd.concat([tx, pd.DataFrame([{
                 "date": today,
                 "type": t,
-                "category": cat,
-                "description": "",
-                "amount": amt,
-                "created_at": datetime.now()
+                "category": c,
+                "description": d,
+                "amount": a
             }])])
             save(tx, TX_FILE)
             st.session_state.tab = "Summary"
             st.rerun()
 
-# ================== TRANSACTIONS ==============
-with tab_map["Transactions"]:
-    st.session_state.tab = "Transactions"
+# ================= TRANSACTIONS =============
+with T["Transactions"]:
     st.dataframe(tx_m.sort_values("date", ascending=False))
 
-# ================== DEBTS =====================
-with tab_map["Debts"]:
-    st.session_state.tab = "Debts"
-    st.dataframe(tx[tx.type=="Debt"])
-
-# ================== SAVINGS ===================
-with tab_map["Savings"]:
-    st.session_state.tab = "Savings"
-    st.dataframe(tx[tx.type=="Savings"])
-
-# ================== BUDGETS ===================
-with tab_map["Budgets"]:
-    st.session_state.tab = "Budgets"
+# ================= BUDGETS ==================
+with T["Budgets"]:
     with st.form("budget"):
         bc = st.text_input("Category")
-        ba = st.number_input("Monthly Budget", min_value=0.0)
+        ba = st.number_input("Monthly Budget", 0.0)
         if st.form_submit_button("Save"):
             budgets = budgets[budgets.category != bc]
             budgets = pd.concat([budgets, pd.DataFrame([{"category":bc,"monthly_budget":ba}])])
             save(budgets, BUDGET_FILE)
             st.rerun()
 
-    st.markdown("### Budget Usage")
-    for _, r in budgets.iterrows():
-        spent = tx_m[(tx_m.category==r.category)&(tx_m.type=="Expense")].amount.sum()
-        pct = min(1, spent/r.monthly_budget) if r.monthly_budget>0 else 0
-        st.write(f"{r.category}: ₹{spent:,.0f} / ₹{r.monthly_budget:,.0f}")
-        st.progress(pct)
+    for _, b in budgets.iterrows():
+        spent = tx_m[(tx_m.category==b.category)&(tx_m.type=="Expense")].amount.sum()
+        st.progress(min(spent/b.monthly_budget,1))
 
-# ================== HELP ======================
-with tab_map["Help"]:
-    st.session_state.tab = "Help"
+# ================= RECURRING ================
+with T["Recurring"]:
+    with st.form("rec"):
+        n = st.text_input("Name")
+        t = st.selectbox("Type", ["Income","Expense","Debt","Savings"])
+        c = st.text_input("Category")
+        a = st.number_input("Amount", 0.0)
+        d = st.number_input("Day of Month", 1, 28)
+        if st.form_submit_button("Add"):
+            recurring = pd.concat([recurring, pd.DataFrame([{
+                "name":n,"type":t,"category":c,"amount":a,"day":d
+            }])])
+            save(recurring, RECUR_FILE)
+            st.rerun()
+
+    st.dataframe(recurring)
+
+# ================= HELP =====================
+with T["Help"]:
     st.markdown("""
-**Features included**
-- Summary opens by default  
-- Remembers last tab  
-- Auto-switch after save  
-- Quick add expense  
-- Today view  
-- Budgets with alerts  
-- Health score  
-- Cloud-safe CSV storage  
+### Included Features
+- Summary-first dashboard
+- Alerts & budgets
+- Debt + savings tracking
+- Net worth graph
+- Recurring entries
+- Mobile-friendly
 
-This is a complete personal finance app.
+This is a complete personal finance system.
 """)
 
-# ================== BACKUP ====================
+# ================= BACKUP ===================
 st.sidebar.markdown("### 📦 Backup")
-st.sidebar.download_button("Download transactions.csv", tx.to_csv(index=False), "transactions.csv")
+st.sidebar.download_button(
+    "Download transactions.csv",
+    tx.to_csv(index=False),
+    "transactions.csv"
+)
