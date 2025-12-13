@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import date, datetime
-import math
 
 # ================= PASSWORD =================
 PASSWORD = "CHANGE_THIS_PASSWORD"
@@ -37,13 +36,14 @@ def load(path, cols):
     if path.exists():
         df = pd.read_csv(path)
         if "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"])
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
         return df
     return pd.DataFrame(columns=cols)
 
 def save(df, path):
     df.to_csv(path, index=False)
 
+# Create files if missing
 if not TX_FILE.exists(): save(pd.DataFrame(columns=TX_COLS), TX_FILE)
 if not BUDGET_FILE.exists(): save(pd.DataFrame(columns=BUDGET_COLS), BUDGET_FILE)
 if not RECUR_FILE.exists(): save(pd.DataFrame(columns=RECUR_COLS), RECUR_FILE)
@@ -52,43 +52,63 @@ tx = load(TX_FILE, TX_COLS)
 budgets = load(BUDGET_FILE, BUDGET_COLS)
 recurring = load(RECUR_FILE, RECUR_COLS)
 
-# ================= STATE ====================
-if "tab" not in st.session_state:
-    st.session_state.tab = "Summary"
-
 # ================= MONTH FILTER =============
 months = ["All time"]
 if not tx.empty:
-    months += sorted(tx["date"].dt.to_period("M").astype(str).unique(), reverse=True)
+    months += sorted(
+        tx["date"].dropna().dt.to_period("M").astype(str).unique(),
+        reverse=True
+    )
 
 month = st.sidebar.selectbox("📅 Month", months)
 
 def filter_month(df, m):
-    if m == "All time":
+    if m == "All time" or df.empty:
         return df
+    df = df.copy()
     df["ym"] = df["date"].dt.to_period("M").astype(str)
     return df[df["ym"] == m]
 
-tx_m = filter_month(tx.copy(), month)
+tx_m = filter_month(tx, month)
 
 # ================= HELPERS ==================
 def total(t):
+    if tx_m.empty:
+        return 0
     return tx_m[tx_m.type == t].amount.sum()
 
 today = pd.Timestamp(date.today())
-tx_today = tx[tx.date.dt.date == today.date()]
+tx_today = tx[tx.date.dt.date == today.date()] if not tx.empty else pd.DataFrame()
 
-# ================= NET WORTH ================
+# ================= NET WORTH (FIXED) =================
 def net_worth(df):
+    if df.empty:
+        return pd.DataFrame()
+
     df = df.copy()
-    df["ym"] = df["date"].dt.to_period("M")
-    p = df.pivot_table(index="ym", columns="type", values="amount", aggfunc="sum").fillna(0)
-    p["NetWorth"] = (
-        p.get("Income",0).cumsum()
-        + p.get("Savings",0).cumsum()
-        - p.get("Expense",0).cumsum()
-        - p.get("Debt",0).cumsum()
+    df["ym"] = df["date"].dt.to_period("M").astype(str)
+
+    p = (
+        df.pivot_table(
+            index="ym",
+            columns="type",
+            values="amount",
+            aggfunc="sum"
+        )
+        .fillna(0)
     )
+
+    # SAFE series creation (never fails)
+    def s(col):
+        return p[col] if col in p.columns else pd.Series(0, index=p.index)
+
+    p["NetWorth"] = (
+        s("Income").cumsum()
+        + s("Savings").cumsum()
+        - s("Expense").cumsum()
+        - s("Debt").cumsum()
+    )
+
     return p.reset_index()
 
 nw = net_worth(tx)
@@ -104,8 +124,6 @@ T = dict(zip(tabs, tab_objs))
 
 # ================= SUMMARY ==================
 with T["Summary"]:
-    st.session_state.tab = "Summary"
-
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Income", f"₹{total('Income'):,.0f}")
     c2.metric("Expense", f"₹{total('Expense'):,.0f}")
@@ -114,9 +132,9 @@ with T["Summary"]:
 
     st.subheader("📅 Today")
     d1,d2,d3 = st.columns(3)
-    d1.metric("Expense", f"₹{tx_today[tx_today.type=='Expense'].amount.sum():,.0f}")
-    d2.metric("Debt", f"₹{tx_today[tx_today.type=='Debt'].amount.sum():,.0f}")
-    d3.metric("Savings", f"₹{tx_today[tx_today.type=='Savings'].amount.sum():,.0f}")
+    d1.metric("Expense", f"₹{tx_today[tx_today.type=='Expense'].amount.sum() if not tx_today.empty else 0:,.0f}")
+    d2.metric("Debt", f"₹{tx_today[tx_today.type=='Debt'].amount.sum() if not tx_today.empty else 0:,.0f}")
+    d3.metric("Savings", f"₹{tx_today[tx_today.type=='Savings'].amount.sum() if not tx_today.empty else 0:,.0f}")
 
     st.subheader("🚨 Alerts")
     for _, b in budgets.iterrows():
@@ -130,13 +148,18 @@ with T["Summary"]:
         st.error("Negative cash flow this month")
 
     st.subheader("📈 Charts")
-    st.bar_chart(tx_m.groupby("type")["amount"].sum())
-    st.bar_chart(tx_m[tx_m.type=="Expense"].groupby("category")["amount"].sum())
+    if not tx_m.empty:
+        st.bar_chart(tx_m.groupby("type")["amount"].sum())
+        exp = tx_m[tx_m.type=="Expense"]
+        if not exp.empty:
+            st.bar_chart(exp.groupby("category")["amount"].sum())
 
     st.subheader("💰 Net Worth")
     if not nw.empty:
         st.line_chart(nw.set_index("ym")["NetWorth"])
         st.metric("Current Net Worth", f"₹{nw.iloc[-1].NetWorth:,.0f}")
+    else:
+        st.info("Add income/savings to start net-worth tracking.")
 
     st.subheader("⚡ Quick Add Expense")
     with st.form("quick"):
@@ -153,7 +176,7 @@ with T["Summary"]:
             save(tx, TX_FILE)
             st.rerun()
 
-# ================= ADD ENTRY ================
+# ================= ADD ENTRY =================
 with T["Add Entry"]:
     with st.form("add"):
         t = st.selectbox("Type", ["Expense","Income","Debt","Savings"])
@@ -169,7 +192,6 @@ with T["Add Entry"]:
                 "amount": a
             }])])
             save(tx, TX_FILE)
-            st.session_state.tab = "Summary"
             st.rerun()
 
 # ================= TRANSACTIONS =============
@@ -189,7 +211,7 @@ with T["Budgets"]:
 
     for _, b in budgets.iterrows():
         spent = tx_m[(tx_m.category==b.category)&(tx_m.type=="Expense")].amount.sum()
-        st.progress(min(spent/b.monthly_budget,1))
+        st.progress(min(spent/b.monthly_budget if b.monthly_budget else 0,1))
 
 # ================= RECURRING ================
 with T["Recurring"]:
@@ -211,15 +233,15 @@ with T["Recurring"]:
 # ================= HELP =====================
 with T["Help"]:
     st.markdown("""
-### Included Features
-- Summary-first dashboard
-- Alerts & budgets
-- Debt + savings tracking
-- Net worth graph
-- Recurring entries
-- Mobile-friendly
+### ✅ This app now supports:
+- Safe net-worth tracking (no crashes)
+- Budgets & alerts
+- Debt & savings tracking
+- Charts & trends
+- Android-friendly UI
+- Cloud-safe CSV storage
 
-This is a complete personal finance system.
+You’re good to go.
 """)
 
 # ================= BACKUP ===================
