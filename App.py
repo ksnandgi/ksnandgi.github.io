@@ -1,253 +1,130 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
-from datetime import date, datetime
+from datetime import datetime, timedelta
 
-# ================= PASSWORD =================
-PASSWORD = "CHANGE_THIS_PASSWORD"
+st.set_page_config("NEET PG Revision", "🧠", layout="wide")
 
-def login():
-    if "auth" not in st.session_state:
-        st.session_state.auth = False
-    if not st.session_state.auth:
-        st.title("🔐 Finance Tracker Login")
-        pwd = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if pwd == PASSWORD:
-                st.session_state.auth = True
-                st.rerun()
-            else:
-                st.error("Incorrect password")
-        st.stop()
+DATA_FILE = Path("pyq_topics.csv")
 
-login()
+COLUMNS = [
+    "id","topic","subject","pyq_years","key_line",
+    "status","high_yield",
+    "revision_count","last_revised","next_revision_date",
+    "created_at"
+]
 
-# ================= FILES ====================
-BASE = Path(".")
-TX_FILE = BASE / "transactions.csv"
-BUDGET_FILE = BASE / "budgets.csv"
-RECUR_FILE = BASE / "recurring.csv"
+SUBJECTS = [
+    "Medicine","Surgery","ObG","Pediatrics","Pathology",
+    "Pharmacology","Microbiology","PSM","Anatomy",
+    "Physiology","Biochemistry"
+]
 
-TX_COLS = ["date","type","category","description","amount"]
-BUDGET_COLS = ["category","monthly_budget"]
-RECUR_COLS = ["name","type","category","amount","day"]
-
-def load(path, cols):
-    if path.exists():
-        df = pd.read_csv(path)
-        if "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+# ---------------- HELPERS ----------------
+def load_data():
+    if DATA_FILE.exists():
+        df = pd.read_csv(DATA_FILE)
+        for col in ["last_revised","next_revision_date","created_at"]:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
         return df
-    return pd.DataFrame(columns=cols)
+    return pd.DataFrame(columns=COLUMNS)
 
-def save(df, path):
-    df.to_csv(path, index=False)
+def save_data(df):
+    df.to_csv(DATA_FILE, index=False)
 
-# Create files if missing
-if not TX_FILE.exists(): save(pd.DataFrame(columns=TX_COLS), TX_FILE)
-if not BUDGET_FILE.exists(): save(pd.DataFrame(columns=BUDGET_COLS), BUDGET_FILE)
-if not RECUR_FILE.exists(): save(pd.DataFrame(columns=RECUR_COLS), RECUR_FILE)
+def next_revision_date(count):
+    schedule = [0,1,3,7,15,30]
+    days = schedule[min(count,5)]
+    return datetime.now() + timedelta(days=days)
 
-tx = load(TX_FILE, TX_COLS)
-budgets = load(BUDGET_FILE, BUDGET_COLS)
-recurring = load(RECUR_FILE, RECUR_COLS)
+df = load_data()
+today = datetime.now().date()
 
-# ================= MONTH FILTER =============
-months = ["All time"]
-if not tx.empty:
-    months += sorted(
-        tx["date"].dropna().dt.to_period("M").astype(str).unique(),
-        reverse=True
-    )
+# ---------------- UI ----------------
+st.title("🧠 NEET PG – PYQ Revision Assistant")
 
-month = st.sidebar.selectbox("📅 Month", months)
+tabs = st.tabs(["📊 Dashboard","➕ Add PYQ","🔁 Revise"])
 
-def filter_month(df, m):
-    if m == "All time" or df.empty:
-        return df
-    df = df.copy()
-    df["ym"] = df["date"].dt.to_period("M").astype(str)
-    return df[df["ym"] == m]
+# ================= DASHBOARD =================
+with tabs[0]:
+    st.subheader("📅 Topics Due Today")
 
-tx_m = filter_month(tx, month)
-
-# ================= HELPERS ==================
-def total(t):
-    if tx_m.empty:
-        return 0
-    return tx_m[tx_m.type == t].amount.sum()
-
-today = pd.Timestamp(date.today())
-tx_today = tx[tx.date.dt.date == today.date()] if not tx.empty else pd.DataFrame()
-
-# ================= NET WORTH (FIXED) =================
-def net_worth(df):
     if df.empty:
-        return pd.DataFrame()
-
-    df = df.copy()
-    df["ym"] = df["date"].dt.to_period("M").astype(str)
-
-    p = (
-        df.pivot_table(
-            index="ym",
-            columns="type",
-            values="amount",
-            aggfunc="sum"
-        )
-        .fillna(0)
-    )
-
-    # SAFE series creation (never fails)
-    def s(col):
-        return p[col] if col in p.columns else pd.Series(0, index=p.index)
-
-    p["NetWorth"] = (
-        s("Income").cumsum()
-        + s("Savings").cumsum()
-        - s("Expense").cumsum()
-        - s("Debt").cumsum()
-    )
-
-    return p.reset_index()
-
-nw = net_worth(tx)
-
-# ================= UI =======================
-st.set_page_config("Finance Tracker", "💰", layout="wide")
-st.title("💰 Personal Finance Tracker")
-
-tabs = ["Summary","Add Entry","Transactions","Budgets","Recurring","Help"]
-icons = ["📊","➕","📜","🎯","🔁","ℹ️"]
-tab_objs = st.tabs([f"{i} {t}" for i,t in zip(icons,tabs)])
-T = dict(zip(tabs, tab_objs))
-
-# ================= SUMMARY ==================
-with T["Summary"]:
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Income", f"₹{total('Income'):,.0f}")
-    c2.metric("Expense", f"₹{total('Expense'):,.0f}")
-    c3.metric("Debt", f"₹{total('Debt'):,.0f}")
-    c4.metric("Savings", f"₹{total('Savings'):,.0f}")
-
-    st.subheader("📅 Today")
-    d1,d2,d3 = st.columns(3)
-    d1.metric("Expense", f"₹{tx_today[tx_today.type=='Expense'].amount.sum() if not tx_today.empty else 0:,.0f}")
-    d2.metric("Debt", f"₹{tx_today[tx_today.type=='Debt'].amount.sum() if not tx_today.empty else 0:,.0f}")
-    d3.metric("Savings", f"₹{tx_today[tx_today.type=='Savings'].amount.sum() if not tx_today.empty else 0:,.0f}")
-
-    st.subheader("🚨 Alerts")
-    for _, b in budgets.iterrows():
-        spent = tx_m[(tx_m.type=="Expense")&(tx_m.category==b.category)].amount.sum()
-        if spent >= b.monthly_budget:
-            st.error(f"{b.category} budget exceeded")
-        elif spent >= 0.8*b.monthly_budget:
-            st.warning(f"{b.category} budget 80% used")
-
-    if total("Expense")+total("Debt")+total("Savings") > total("Income"):
-        st.error("Negative cash flow this month")
-
-    st.subheader("📈 Charts")
-    if not tx_m.empty:
-        st.bar_chart(tx_m.groupby("type")["amount"].sum())
-        exp = tx_m[tx_m.type=="Expense"]
-        if not exp.empty:
-            st.bar_chart(exp.groupby("category")["amount"].sum())
-
-    st.subheader("💰 Net Worth")
-    if not nw.empty:
-        st.line_chart(nw.set_index("ym")["NetWorth"])
-        st.metric("Current Net Worth", f"₹{nw.iloc[-1].NetWorth:,.0f}")
+        st.info("No topics added yet.")
     else:
-        st.info("Add income/savings to start net-worth tracking.")
+        due = df[
+            (df.next_revision_date.isna()) |
+            (df.next_revision_date.dt.date <= today)
+        ]
 
-    st.subheader("⚡ Quick Add Expense")
-    with st.form("quick"):
-        qa = st.number_input("Amount", 0.0)
-        qc = st.text_input("Category")
-        if st.form_submit_button("Add"):
-            tx = pd.concat([tx, pd.DataFrame([{
-                "date": today,
-                "type": "Expense",
-                "category": qc,
-                "description": "Quick",
-                "amount": qa
-            }])])
-            save(tx, TX_FILE)
-            st.rerun()
+        st.metric("Due Today", len(due))
+        st.metric("High-Yield Due", len(due[due.high_yield=="yes"]))
 
-# ================= ADD ENTRY =================
-with T["Add Entry"]:
+        st.dataframe(
+            due[["topic","subject","revision_count","high_yield"]],
+            use_container_width=True
+        )
+
+# ================= ADD PYQ =================
+with tabs[1]:
+    st.subheader("➕ Add PYQ Topic")
+
     with st.form("add"):
-        t = st.selectbox("Type", ["Expense","Income","Debt","Savings"])
-        a = st.number_input("Amount", 0.0)
-        c = st.text_input("Category")
-        d = st.text_input("Description")
-        if st.form_submit_button("Save"):
-            tx = pd.concat([tx, pd.DataFrame([{
-                "date": today,
-                "type": t,
-                "category": c,
-                "description": d,
-                "amount": a
-            }])])
-            save(tx, TX_FILE)
-            st.rerun()
+        topic = st.text_input("Topic")
+        subject = st.selectbox("Subject", SUBJECTS)
+        pyq = st.text_input("PYQ Years")
+        key = st.text_area("One-line concept")
+        hy = st.checkbox("High Yield")
 
-# ================= TRANSACTIONS =============
-with T["Transactions"]:
-    st.dataframe(tx_m.sort_values("date", ascending=False))
-
-# ================= BUDGETS ==================
-with T["Budgets"]:
-    with st.form("budget"):
-        bc = st.text_input("Category")
-        ba = st.number_input("Monthly Budget", 0.0)
-        if st.form_submit_button("Save"):
-            budgets = budgets[budgets.category != bc]
-            budgets = pd.concat([budgets, pd.DataFrame([{"category":bc,"monthly_budget":ba}])])
-            save(budgets, BUDGET_FILE)
-            st.rerun()
-
-    for _, b in budgets.iterrows():
-        spent = tx_m[(tx_m.category==b.category)&(tx_m.type=="Expense")].amount.sum()
-        st.progress(min(spent/b.monthly_budget if b.monthly_budget else 0,1))
-
-# ================= RECURRING ================
-with T["Recurring"]:
-    with st.form("rec"):
-        n = st.text_input("Name")
-        t = st.selectbox("Type", ["Income","Expense","Debt","Savings"])
-        c = st.text_input("Category")
-        a = st.number_input("Amount", 0.0)
-        d = st.number_input("Day of Month", 1, 28)
         if st.form_submit_button("Add"):
-            recurring = pd.concat([recurring, pd.DataFrame([{
-                "name":n,"type":t,"category":c,"amount":a,"day":d
-            }])])
-            save(recurring, RECUR_FILE)
-            st.rerun()
+            if topic and key:
+                row = {
+                    "id": len(df)+1,
+                    "topic": topic,
+                    "subject": subject,
+                    "pyq_years": pyq,
+                    "key_line": key,
+                    "status": "not_revised",
+                    "high_yield": "yes" if hy else "no",
+                    "revision_count": 0,
+                    "last_revised": None,
+                    "next_revision_date": datetime.now(),
+                    "created_at": datetime.now()
+                }
+                df = pd.concat([df,pd.DataFrame([row])], ignore_index=True)
+                save_data(df)
+                st.success("Added")
 
-    st.dataframe(recurring)
+# ================= REVISE =================
+with tabs[2]:
+    st.subheader("🔁 Revision Mode")
 
-# ================= HELP =====================
-with T["Help"]:
-    st.markdown("""
-### ✅ This app now supports:
-- Safe net-worth tracking (no crashes)
-- Budgets & alerts
-- Debt & savings tracking
-- Charts & trends
-- Android-friendly UI
-- Cloud-safe CSV storage
+    due = df[
+        (df.next_revision_date.isna()) |
+        (df.next_revision_date.dt.date <= today)
+    ]
 
-You’re good to go.
-""")
+    if due.empty:
+        st.success("Nothing due today 🎉")
+    else:
+        for idx,row in due.iterrows():
+            with st.expander(f"{row.topic} ({row.subject})"):
+                st.markdown(row.key_line)
 
-# ================= BACKUP ===================
-st.sidebar.markdown("### 📦 Backup")
-st.sidebar.download_button(
-    "Download transactions.csv",
-    tx.to_csv(index=False),
-    "transactions.csv"
-)
+                c1,c2 = st.columns(2)
+
+                with c1:
+                    if st.button("✅ Revised", key=f"rev{idx}"):
+                        df.at[idx,"revision_count"] += 1
+                        df.at[idx,"last_revised"] = datetime.now()
+                        df.at[idx,"next_revision_date"] = next_revision_date(
+                            df.at[idx,"revision_count"]
+                        )
+                        save_data(df)
+                        st.experimental_rerun()
+
+                with c2:
+                    if st.button("🔁 Revise Again", key=f"again{idx}"):
+                        df.at[idx,"next_revision_date"] = datetime.now() + timedelta(days=1)
+                        save_data(df)
+                        st.experimental_rerun()
