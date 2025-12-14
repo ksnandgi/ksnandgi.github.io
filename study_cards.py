@@ -152,7 +152,7 @@ def render_study_cards():
             bullet_lines = [b for b in bullets.splitlines() if b.strip()]
             if len(bullet_lines) < 3:
                 st.error("Minimum 3 bullets required.")
-                return
+                
 
             image_paths = save_uploaded_images(images, topic_id) if images else []
 
