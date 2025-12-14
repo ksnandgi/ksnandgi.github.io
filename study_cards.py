@@ -14,6 +14,7 @@ No revision logic. No analytics.
 import streamlit as st
 import pandas as pd
 import re
+import os
 from pathlib import Path
 
 from data_layer import (
@@ -64,6 +65,30 @@ def save_uploaded_images(files, topic_id: int) -> list[str]:
 
     return paths
 
+def delete_study_card(cards_df, topic_id: int):
+    """
+    Delete study card and associated images.
+    """
+    card = cards_df[cards_df.topic_id == topic_id]
+
+    if card.empty:
+        return cards_df
+
+    card = card.iloc[0]
+
+    # Delete images
+    if card.image_paths:
+        for path in card.image_paths.split(";"):
+            try:
+                os.remove(path)
+            except Exception:
+                pass  # fail silently
+
+    # Remove card row
+    cards_df = cards_df[cards_df.topic_id != topic_id]
+    return cards_df
+
+
 
 # =========================
 # MAIN UI
@@ -107,9 +132,19 @@ def render_study_cards():
 
     # ---- Card existence check ----
     if card_exists_for_topic(cards, topic_id):
-        st.success("Study Card already exists for this topic.")
-        st.info("Editing cards is intentionally disabled in this version.")
-        return
+    st.success("Study Card already exists for this topic.")
+
+    st.warning("If something is wrong, you can delete and recreate the Study Card.")
+
+    confirm = st.checkbox("I understand this will permanently delete the Study Card")
+
+    if st.button("🗑️ Delete Study Card", disabled=not confirm):
+        cards = delete_study_card(cards, topic_id)
+        save_cards(cards)
+        st.success("Study Card deleted. You can now recreate it.")
+        st.rerun()
+
+    return
 
     st.markdown("### ➕ Create Study Card")
 
