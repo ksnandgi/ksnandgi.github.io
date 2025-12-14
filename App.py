@@ -4,6 +4,8 @@ from pathlib import Path
 from datetime import datetime, timedelta, date
 import re, os
 
+import speech_recognition as sr
+
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
@@ -32,7 +34,7 @@ CARD_COLS = [
 SUBJECTS = [
     "Medicine","Surgery","ObG","Pediatrics","Pathology",
     "Pharmacology","Microbiology","PSM","Anatomy",
-    "Physiology","Biochemistry"
+    "Physiology","Biochemistry","Radiology","Dermatology"
 ]
 
 # ================= HELPERS =================
@@ -63,34 +65,6 @@ cards = load_csv(CARD_FILE, CARD_COLS)
 for c in ["last_revised","next_revision_date","created_at"]:
     pyq[c] = pd.to_datetime(pyq[c], errors="coerce")
 
-# ================= PDF EXPORT =================
-def export_cards_to_pdf(subject_filter=None):
-    file_path = Path("study_cards_export.pdf")
-    doc = SimpleDocTemplate(str(file_path), pagesize=A4)
-    styles = getSampleStyleSheet()
-    story = []
-
-    merged = pyq.merge(cards, left_on="id", right_on="topic_id")
-
-    if subject_filter:
-        merged = merged[merged.subject == subject_filter]
-
-    for _, row in merged.iterrows():
-        story.append(Paragraph(f"<b>{row.topic} ({row.subject})</b>", styles["Heading3"]))
-
-        for line in row.bullets.splitlines():
-            story.append(Paragraph(line, styles["Normal"]))
-
-        if pd.notna(row.image_paths):
-            for p in row.image_paths.split(";"):
-                if os.path.exists(p):
-                    story.append(RLImage(p, width=250, height=180))
-
-        story.append(Paragraph("<br/>", styles["Normal"]))
-
-    doc.build(story)
-    return file_path
-
 # ================= UI =================
 st.title("🧠 NEET PG – Compact Study & Revision System")
 
@@ -104,33 +78,55 @@ tabs = st.tabs([
 ])
 
 # =====================================================
-# 📊 DASHBOARD
+# 📊 DASHBOARD + WEAK ANALYTICS
 # =====================================================
 with tabs[0]:
-    with_cards = set(cards.topic_id.dropna())
-    no_cards = pyq[~pyq.id.isin(with_cards)]
+    weak = pyq[pyq.fail_count >= 2]
 
     c1,c2,c3 = st.columns(3)
     c1.metric("Total PYQs", len(pyq))
     c2.metric("Study Cards", len(cards))
-    c3.metric("Needs Consolidation", len(no_cards))
+    c3.metric("Weak Topics", len(weak))
 
-    st.markdown("### 📄 Export Study Cards")
-    subject_for_pdf = st.selectbox("Export Subject (optional)", ["All"] + SUBJECTS)
-    if st.button("Export PDF"):
-        path = export_cards_to_pdf(None if subject_for_pdf=="All" else subject_for_pdf)
-        st.success("PDF generated")
-        st.download_button("Download PDF", open(path, "rb"), file_name="neet_pg_study_cards.pdf")
+    st.markdown("### 🔴 Weak Areas (Subject-wise)")
+    if not weak.empty:
+        st.bar_chart(weak.subject.value_counts())
+    else:
+        st.success("No weak areas detected 🎉")
+
+    st.markdown("### 🧠 Top Weak Topics")
+    st.dataframe(
+        weak.sort_values("fail_count", ascending=False)
+        [["topic","subject","fail_count"]]
+        .head(5),
+        use_container_width=True
+    )
 
 # =====================================================
-# ➕ PYQ CAPTURE
+# ➕ PYQ CAPTURE (VOICE + TEXT)
 # =====================================================
 with tabs[1]:
+    st.subheader("➕ PYQ Capture")
+
+    st.markdown("### 🎙️ Voice Input (optional)")
+    audio = st.audio_input("Record PYQ concept")
+
+    recognized_text = ""
+    if audio:
+        r = sr.Recognizer()
+        with sr.AudioFile(audio) as source:
+            audio_data = r.record(source)
+            try:
+                recognized_text = r.recognize_google(audio_data)
+                st.success(f"Recognized: {recognized_text}")
+            except:
+                st.error("Could not recognize speech")
+
     with st.form("pyq_add"):
-        topic = st.text_input("Topic")
+        topic = st.text_input("Topic", value=recognized_text)
         subject = st.selectbox("Subject", SUBJECTS)
         years = st.text_input("PYQ Years")
-        trigger = st.text_area("One-line trigger")
+        trigger = st.text_area("One-line trigger", value=recognized_text)
 
         if st.form_submit_button("Save PYQ"):
             row = {
@@ -192,9 +188,11 @@ with tabs[2]:
             st.success("Study Card saved")
 
 # =====================================================
-# 🔁 REVISION (SUBJECT-WISE RAPID REVIEW)
+# 🔁 REVISION + IMAGE-ONLY MODE
 # =====================================================
 with tabs[3]:
+    image_only = st.toggle("🖼️ Image-only Mode", value=False)
+
     due = pyq[is_due(pyq)]
 
     if rapid_mode:
@@ -213,24 +211,27 @@ with tabs[3]:
         with st.expander(f"{row.topic} ({row.subject})"):
             if not card.empty:
                 c = card.iloc[0]
-                for line in c.bullets.splitlines():
-                    st.markdown(f"- {line}")
+
+                if not image_only:
+                    for line in c.bullets.splitlines():
+                        st.markdown(f"- {line}")
 
                 if pd.notna(c.image_paths):
                     for p in c.image_paths.split(";"):
                         if os.path.exists(p):
                             st.image(p)
 
-                if c.external_url:
+                if image_only:
+                    st.info(c.bullets.splitlines()[0])
+
+                if c.external_url and not image_only:
                     st.link_button("🔗 Full Topic", c.external_url)
             else:
                 st.markdown(row.trigger_line)
 
             if not rapid_mode:
-                if st.button("✅ Revised", key=f"rev_{idx}"):
-                    pyq.at[idx,"revision_count"] += 1
-                    pyq.at[idx,"next_revision_date"] = next_revision_date(
-                        pyq.at[idx,"revision_count"]
-                    )
+                if st.button("🔁 Still Weak", key=f"fail_{idx}"):
+                    pyq.at[idx,"fail_count"] += 1
+                    pyq.at[idx,"next_revision_date"] = pd.Timestamp.now() + timedelta(days=1)
                     save_csv(pyq, PYQ_FILE)
                     st.rerun()
