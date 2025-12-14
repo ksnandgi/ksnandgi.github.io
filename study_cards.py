@@ -73,16 +73,25 @@ def render_study_cards():
     st.subheader("🗂️ Study Cards")
 
     pyqs = load_pyqs()
-    cards = load_cards()
+cards = load_cards()
 
-    # ---- Topic selection ----
-    pyqs["label"] = pyqs["topic"] + " (" + pyqs["subject"] + ")"
-    topic_map = dict(zip(pyqs["label"], pyqs["id"]))
+# ---- EMPTY STATE GUARD ----
+if pyqs.empty:
+    st.info("No PYQ topics found. Please add PYQs before creating Study Cards.")
+    return
 
-    selected_label = st.selectbox(
-        "Select PYQ Topic",
-        options=topic_map.keys()
-    )
+# ---- Topic selection ----
+pyqs["label"] = pyqs["topic"] + " (" + pyqs["subject"] + ")"
+topic_map = dict(zip(pyqs["label"], pyqs["id"]))
+
+selected_label = st.selectbox(
+    "Select PYQ Topic",
+    options=list(topic_map.keys())
+)
+
+if not selected_label:
+    st.warning("Select a topic to continue.")
+    return
 
     topic_id = topic_map[selected_label]
     topic_row = pyqs[pyqs["id"] == topic_id].iloc[0]
