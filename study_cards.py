@@ -73,27 +73,36 @@ def render_study_cards():
     st.subheader("🗂️ Study Cards")
 
     pyqs = load_pyqs()
-cards = load_cards()
+    cards = load_cards()
 
-# ---- EMPTY STATE GUARD ----
-if pyqs.empty:
-    st.info("No PYQ topics found. Please add PYQs before creating Study Cards.")
-    return
+    # =========================
+    # HARD GUARD — NO PYQs
+    # =========================
+    if pyqs.empty:
+        st.info("No PYQ topics found yet.")
+        st.markdown("➡️ Please add PYQs first, then return here to create Study Cards.")
+        return
 
-# ---- Topic selection ----
-pyqs["label"] = pyqs["topic"] + " (" + pyqs["subject"] + ")"
-topic_map = dict(zip(pyqs["label"], pyqs["id"]))
+    pyqs = pyqs.copy()
+    pyqs["label"] = pyqs["topic"].astype(str) + " (" + pyqs["subject"].astype(str) + ")"
 
-selected_label = st.selectbox(
-    "Select PYQ Topic",
-    options=list(topic_map.keys())
-)
+    labels = pyqs["label"].tolist()
+    topic_ids = pyqs["id"].tolist()
 
-if not selected_label:
-    st.warning("Select a topic to continue.")
-    return
+    # =========================
+    # HARD GUARD — NO OPTIONS
+    # =========================
+    if len(labels) == 0:
+        st.warning("No valid PYQ topics available.")
+        return
 
-    topic_id = topic_map[selected_label]
+    # ---- SAFE SELECTBOX ----
+    selected_label = st.selectbox(
+        "Select PYQ Topic",
+        labels
+    )
+
+    topic_id = topic_ids[labels.index(selected_label)]
     topic_row = pyqs[pyqs["id"] == topic_id].iloc[0]
 
     # ---- Card existence check ----
