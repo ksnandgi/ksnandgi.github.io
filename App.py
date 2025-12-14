@@ -4,6 +4,10 @@ from pathlib import Path
 from datetime import datetime, timedelta, date
 import re, os
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image as RLImage
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+
 # ================= CONFIG =================
 st.set_page_config("NEET PG Study System", "🧠", layout="wide")
 
@@ -52,27 +56,6 @@ def is_due(df):
     today = pd.Timestamp(date.today())
     return df["next_revision_date"].isna() | (df["next_revision_date"] <= today)
 
-# ================= AUTO CARD DRAFT =================
-KEYWORDS = {
-    "most common": 3, "characteristic": 3, "except": 3,
-    "difference": 3, "vs": 3,
-    "associated": 2, "treatment": 2,
-    "diagnosis": 2, "feature": 2
-}
-
-def generate_study_card(text, max_bullets=5):
-    sentences = re.split(r'[.!?]\s+', text)
-    scored = []
-    for s in sentences:
-        score = sum(w for k,w in KEYWORDS.items() if k in s.lower())
-        scored.append((score, s.strip()))
-    scored.sort(reverse=True)
-    bullets = []
-    for _, s in scored[:max_bullets]:
-        words = s.split()[:12]
-        bullets.append("• " + " ".join(words))
-    return "\n".join(bullets)
-
 # ================= LOAD DATA =================
 pyq = load_csv(PYQ_FILE, PYQ_COLS)
 cards = load_csv(CARD_FILE, CARD_COLS)
@@ -80,10 +63,38 @@ cards = load_csv(CARD_FILE, CARD_COLS)
 for c in ["last_revised","next_revision_date","created_at"]:
     pyq[c] = pd.to_datetime(pyq[c], errors="coerce")
 
+# ================= PDF EXPORT =================
+def export_cards_to_pdf(subject_filter=None):
+    file_path = Path("study_cards_export.pdf")
+    doc = SimpleDocTemplate(str(file_path), pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    merged = pyq.merge(cards, left_on="id", right_on="topic_id")
+
+    if subject_filter:
+        merged = merged[merged.subject == subject_filter]
+
+    for _, row in merged.iterrows():
+        story.append(Paragraph(f"<b>{row.topic} ({row.subject})</b>", styles["Heading3"]))
+
+        for line in row.bullets.splitlines():
+            story.append(Paragraph(line, styles["Normal"]))
+
+        if pd.notna(row.image_paths):
+            for p in row.image_paths.split(";"):
+                if os.path.exists(p):
+                    story.append(RLImage(p, width=250, height=180))
+
+        story.append(Paragraph("<br/>", styles["Normal"]))
+
+    doc.build(story)
+    return file_path
+
 # ================= UI =================
 st.title("🧠 NEET PG – Compact Study & Revision System")
 
-rapid_mode = st.toggle("⚡ Rapid Review Mode (Last 15 Days)", value=False)
+rapid_mode = st.toggle("⚡ Rapid Review Mode", value=False)
 
 tabs = st.tabs([
     "📊 Dashboard",
@@ -104,12 +115,17 @@ with tabs[0]:
     c2.metric("Study Cards", len(cards))
     c3.metric("Needs Consolidation", len(no_cards))
 
+    st.markdown("### 📄 Export Study Cards")
+    subject_for_pdf = st.selectbox("Export Subject (optional)", ["All"] + SUBJECTS)
+    if st.button("Export PDF"):
+        path = export_cards_to_pdf(None if subject_for_pdf=="All" else subject_for_pdf)
+        st.success("PDF generated")
+        st.download_button("Download PDF", open(path, "rb"), file_name="neet_pg_study_cards.pdf")
+
 # =====================================================
 # ➕ PYQ CAPTURE
 # =====================================================
 with tabs[1]:
-    st.subheader("➕ PYQ Capture")
-
     with st.form("pyq_add"):
         topic = st.text_input("Topic")
         subject = st.selectbox("Subject", SUBJECTS)
@@ -119,7 +135,8 @@ with tabs[1]:
         if st.form_submit_button("Save PYQ"):
             row = {
                 "id": int(pyq.id.max())+1 if not pyq.empty else 1,
-                "topic": topic, "subject": subject,
+                "topic": topic,
+                "subject": subject,
                 "pyq_years": years,
                 "trigger_line": trigger,
                 "status": "not_revised",
@@ -134,7 +151,7 @@ with tabs[1]:
             st.success("PYQ added")
 
 # =====================================================
-# 🗂️ STUDY CARDS (WITH IMAGES)
+# 🗂️ STUDY CARDS
 # =====================================================
 with tabs[2]:
     pyq_no_card = pyq[~pyq.id.isin(cards.topic_id)]
@@ -149,20 +166,8 @@ with tabs[2]:
         topic_id = topic_map[selected]
 
         title = st.text_input("Card Title")
-        raw = st.text_area("Paste explanation (optional)")
-        if st.button("Generate Draft"):
-            st.session_state["draft"] = generate_study_card(raw)
-
-        bullets = st.text_area(
-            "Study Card Bullets",
-            value=st.session_state.get("draft","")
-        )
-
-        imgs = st.file_uploader(
-            "Upload images", accept_multiple_files=True,
-            type=["png","jpg","jpeg"]
-        )
-
+        bullets = st.text_area("Study Card Bullets (3–7 lines)")
+        imgs = st.file_uploader("Upload images", accept_multiple_files=True)
         url = st.text_input("External URL (optional)")
 
         if st.button("Save Study Card"):
@@ -187,14 +192,21 @@ with tabs[2]:
             st.success("Study Card saved")
 
 # =====================================================
-# 🔁 REVISION + RAPID MODE
+# 🔁 REVISION (SUBJECT-WISE RAPID REVIEW)
 # =====================================================
 with tabs[3]:
     due = pyq[is_due(pyq)]
 
     if rapid_mode:
-        due = due[due.id.isin(cards.topic_id)]
-        due = due.sort_values(["fail_count","revision_count"], ascending=False)
+        subject_filter = st.selectbox("Select Subject", SUBJECTS)
+        due = due[
+            (due.subject == subject_filter) &
+            (due.id.isin(cards.topic_id))
+        ]
+        due = due.sort_values(
+            ["fail_count","revision_count"],
+            ascending=False
+        )
 
     for idx,row in due.iterrows():
         card = cards[cards.topic_id == row.id]
