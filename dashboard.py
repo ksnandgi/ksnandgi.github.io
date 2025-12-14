@@ -65,7 +65,6 @@ def render_dashboard():
 
     if pyqs.empty:
         st.info("Start by adding PYQ topics.")
-        return
 
     # ---- Daily Plan ----
     plan = generate_daily_plan(pyqs)
