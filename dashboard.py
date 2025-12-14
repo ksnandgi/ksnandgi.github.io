@@ -16,10 +16,24 @@ No editing. No pressure metrics. No comparisons.
 
 import streamlit as st
 import pandas as pd
+import os
+import zipfile
+from io import BytesIO
 from datetime import date
 
 from data_layer import load_pyqs, load_cards, is_due
 
+
+def zip_images(folder="card_images"):
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+        if os.path.exists(folder):
+            for root, _, files in os.walk(folder):
+                for f in files:
+                    path = os.path.join(root, f)
+                    z.write(path, arcname=f)
+    buffer.seek(0)
+    return buffer
 
 # =========================
 # DAILY PLAN
@@ -122,3 +136,61 @@ def render_dashboard():
         st.warning(
             "You’ve been revising consistently. Consider using Rapid Review or Image Sprint modes."
         )
+
+st.markdown("---")
+st.markdown("## 💾 Backup & Restore (Important)")
+
+st.caption(
+    "Streamlit Cloud resets data on reboot. "
+    "Download backups regularly to avoid data loss."
+)
+
+# =========================
+# BACKUP SECTION
+# =========================
+st.markdown("### ⬇️ Backup")
+
+if os.path.exists("pyq_topics.csv"):
+    st.download_button(
+        "Download PYQs CSV",
+        data=open("pyq_topics.csv", "rb"),
+        file_name="pyq_topics.csv"
+    )
+
+if os.path.exists("study_cards.csv"):
+    st.download_button(
+        "Download Study Cards CSV",
+        data=open("study_cards.csv", "rb"),
+        file_name="study_cards.csv"
+    )
+
+if os.path.exists("card_images"):
+    img_zip = zip_images()
+    st.download_button(
+        "Download Card Images (ZIP)",
+        data=img_zip,
+        file_name="card_images.zip"
+    )
+
+# =========================
+# RESTORE SECTION
+# =========================
+st.markdown("### ⬆️ Restore")
+
+pyq_file = st.file_uploader("Restore PYQs CSV", type="csv")
+if pyq_file:
+    with open("pyq_topics.csv", "wb") as f:
+        f.write(pyq_file.getbuffer())
+    st.success("PYQs restored. Reload the app.")
+
+card_file = st.file_uploader("Restore Study Cards CSV", type="csv")
+if card_file:
+    with open("study_cards.csv", "wb") as f:
+        f.write(card_file.getbuffer())
+    st.success("Study Cards restored. Reload the app.")
+
+img_zip_file = st.file_uploader("Restore Card Images (ZIP)", type="zip")
+if img_zip_file:
+    with zipfile.ZipFile(img_zip_file) as z:
+        z.extractall("card_images")
+    st.success("Images restored. Reload the app.")
