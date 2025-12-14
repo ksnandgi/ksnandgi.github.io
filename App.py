@@ -4,6 +4,10 @@ from pathlib import Path
 from datetime import datetime, timedelta, date
 import os
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image as RLImage
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+
 # ================= CONFIG =================
 st.set_page_config("NEET PG Study System", "🧠", layout="wide")
 
@@ -26,7 +30,6 @@ CARD_COLS = [
 ]
 
 SUBJECTS = [
-    "All",
     "Medicine","Surgery","ObG","Pediatrics","Pathology",
     "Pharmacology","Microbiology","PSM","Anatomy",
     "Physiology","Biochemistry","Radiology","Dermatology"
@@ -60,6 +63,44 @@ cards = load_csv(CARD_FILE, CARD_COLS)
 for c in ["last_revised","next_revision_date","created_at"]:
     pyq[c] = pd.to_datetime(pyq[c], errors="coerce")
 
+# ================= PDF EXPORT =================
+def export_cards_to_pdf(subject=None):
+    merged = pyq.merge(cards, left_on="id", right_on="topic_id")
+    if subject:
+        merged = merged[merged.subject == subject]
+
+    file_path = Path("study_cards_export.pdf")
+    doc = SimpleDocTemplate(str(file_path), pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    for _, r in merged.iterrows():
+        story.append(Paragraph(f"<b>{r.topic} ({r.subject})</b>", styles["Heading3"]))
+        for line in r.bullets.splitlines():
+            story.append(Paragraph(line, styles["Normal"]))
+        if pd.notna(r.image_paths):
+            for p in r.image_paths.split(";"):
+                if os.path.exists(p):
+                    story.append(RLImage(p, width=260, height=180))
+        story.append(Paragraph("<br/>", styles["Normal"]))
+
+    doc.build(story)
+    return file_path
+
+# ================= DAILY PLAN =================
+def daily_revision_plan(df, limit=8):
+    due = df[is_due(df)]
+    weak = df[df.fail_count >= 2]
+    strong = df[df.revision_count >= 3]
+
+    plan = pd.concat([
+        due,
+        weak,
+        strong.sample(min(len(strong), 2)) if not strong.empty else strong
+    ]).drop_duplicates()
+
+    return plan.head(limit)
+
 # ================= UI =================
 st.title("🧠 NEET PG – Compact Study & Revision System")
 
@@ -67,149 +108,75 @@ tabs = st.tabs([
     "📊 Dashboard",
     "➕ PYQ Capture",
     "🗂️ Study Cards",
-    "🔁 Revision"
+    "🔁 Revision",
+    "🖼️ Image Sprint"
 ])
 
 # =====================================================
 # 📊 DASHBOARD
 # =====================================================
 with tabs[0]:
-    weak = pyq[pyq.fail_count >= 2]
-    with_cards = set(cards.topic_id.dropna())
-    no_cards = pyq[~pyq.id.isin(with_cards)]
+    plan = daily_revision_plan(pyq)
 
-    c1,c2,c3 = st.columns(3)
-    c1.metric("Total Topics", len(pyq))
-    c2.metric("Weak Topics", len(weak))
-    c3.metric("Needs Consolidation", len(no_cards))
-
-# =====================================================
-# ➕ PYQ CAPTURE
-# =====================================================
-with tabs[1]:
-    with st.form("pyq_add"):
-        topic = st.text_input("Topic (micro-concept)")
-        subject = st.selectbox("Subject", SUBJECTS[1:])
-        years = st.text_input("PYQ Years")
-        trigger = st.text_area("One-line trigger")
-
-        if st.form_submit_button("Save PYQ"):
-            row = {
-                "id": int(pyq.id.max())+1 if not pyq.empty else 1,
-                "topic": topic,
-                "subject": subject,
-                "pyq_years": years,
-                "trigger_line": trigger,
-                "revision_count": 0,
-                "fail_count": 0,
-                "last_revised": None,
-                "next_revision_date": pd.Timestamp.now(),
-                "created_at": pd.Timestamp.now()
-            }
-            pyq = pd.concat([pyq, pd.DataFrame([row])], ignore_index=True)
-            save_csv(pyq, PYQ_FILE)
-            st.success("PYQ added")
-
-# =====================================================
-# 🗂️ STUDY CARDS
-# =====================================================
-with tabs[2]:
-    pyq_no_card = pyq[~pyq.id.isin(cards.topic_id)]
-
-    if pyq_no_card.empty:
-        st.success("All topics consolidated 🎉")
+    st.markdown("### 📅 Today’s Revision Plan")
+    if plan.empty:
+        st.success("Nothing scheduled today 🎉")
     else:
-        topic_map = {
-            f"{r.topic} ({r.subject})": r.id
-            for _, r in pyq_no_card.iterrows()
-        }
+        st.dataframe(plan[["topic","subject","fail_count"]], use_container_width=True)
 
-        selected = st.selectbox("Select topic to consolidate", topic_map.keys())
-        topic_id = topic_map[selected]
-
-        title = st.text_input("Card Title")
-        bullets = st.text_area("Study Card Bullets (3–7 lines)")
-        imgs = st.file_uploader("Upload images", accept_multiple_files=True)
-        url = st.text_input("External URL (optional)")
-
-        if st.button("Save Study Card"):
-            paths = []
-            for img in imgs:
-                p = IMAGE_DIR / f"{datetime.now().timestamp()}_{img.name}"
-                with open(p,"wb") as f:
-                    f.write(img.read())
-                paths.append(str(p))
-
-            card = {
-                "card_id": int(cards.card_id.max())+1 if not cards.empty else 1,
-                "topic_id": topic_id,
-                "card_title": title,
-                "bullets": bullets,
-                "external_url": url,
-                "image_paths": ";".join(paths),
-                "created_at": pd.Timestamp.now()
-            }
-            cards = pd.concat([cards, pd.DataFrame([card])], ignore_index=True)
-            save_csv(cards, CARD_FILE)
-            st.success("Study Card saved")
+    st.markdown("### 📄 Export Study Cards")
+    subject_pdf = st.selectbox("Export subject", ["All"] + SUBJECTS)
+    if st.button("Generate PDF"):
+        path = export_cards_to_pdf(None if subject_pdf=="All" else subject_pdf)
+        st.download_button("Download PDF", open(path,"rb"), file_name="neet_pg_study_cards.pdf")
 
 # =====================================================
-# 🔁 REVISION (SUBJECT ALWAYS AVAILABLE)
+# 🔁 REVISION (ALWAYS SUBJECT-WISE)
 # =====================================================
 with tabs[3]:
-    subject_filter = st.selectbox("Select Subject", SUBJECTS)
-    rapid_mode = st.toggle("⚡ Rapid Review Mode")
+    subject = st.selectbox("Subject", ["All"] + SUBJECTS)
     image_only = st.toggle("🖼️ Image-only Mode")
 
     due = pyq[is_due(pyq)]
+    if subject != "All":
+        due = due[due.subject == subject]
 
-    if subject_filter != "All":
-        due = due[due.subject == subject_filter]
-
-    # Weak-first ordering
-    due = due.sort_values(
-        ["fail_count","revision_count","next_revision_date"],
-        ascending=[False, False, True]
-    )
+    due = due.sort_values(["fail_count","revision_count"], ascending=False)
 
     for idx, row in due.iterrows():
         card = cards[cards.topic_id == row.id]
-
         with st.expander(f"{row.topic} ({row.subject})"):
             if not card.empty:
                 c = card.iloc[0]
-
                 if not image_only:
                     for line in c.bullets.splitlines():
                         st.markdown(f"- {line}")
-
                 if pd.notna(c.image_paths):
                     for p in c.image_paths.split(";"):
                         if os.path.exists(p):
                             st.image(p)
-
                 if image_only:
                     st.info(c.bullets.splitlines()[0])
-
-                if c.external_url and not image_only:
-                    st.link_button("🔗 Full Topic", c.external_url)
             else:
-                st.warning("No Study Card — revise trigger only")
+                st.warning("No Study Card")
                 st.markdown(row.trigger_line)
 
-            c1,c2 = st.columns(2)
-            with c1:
-                if st.button("✅ Revised", key=f"rev_{idx}"):
-                    pyq.at[idx,"revision_count"] += 1
-                    pyq.at[idx,"last_revised"] = pd.Timestamp.now()
-                    pyq.at[idx,"next_revision_date"] = next_revision_date(
-                        pyq.at[idx,"revision_count"]
-                    )
-                    save_csv(pyq, PYQ_FILE)
-                    st.rerun()
-            with c2:
-                if st.button("❌ Weak", key=f"weak_{idx}"):
-                    pyq.at[idx,"fail_count"] += 1
-                    pyq.at[idx,"next_revision_date"] = pd.Timestamp.now() + timedelta(days=1)
-                    save_csv(pyq, PYQ_FILE)
-                    st.rerun()
+# =====================================================
+# 🖼️ IMAGE SPRINT (PER SUBJECT)
+# =====================================================
+with tabs[4]:
+    sprint_subject = st.selectbox("Select Subject", SUBJECTS)
+    sprint_cards = pyq[
+        (pyq.subject == sprint_subject) &
+        (pyq.id.isin(cards.topic_id))
+    ]
+
+    for _, row in sprint_cards.iterrows():
+        c = cards[cards.topic_id == row.id].iloc[0]
+        st.markdown(f"### {row.topic}")
+        if pd.notna(c.image_paths):
+            for p in c.image_paths.split(";"):
+                if os.path.exists(p):
+                    st.image(p)
+        st.info(c.bullets.splitlines()[0])
+        st.divider()
