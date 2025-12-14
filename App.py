@@ -1,112 +1,84 @@
+"""
+FINAL ASSEMBLY — NEET PG STUDY SYSTEM
+Single-file Streamlit App
+
+Modules:
+0. data_layer.py
+1. pyq_capture.py
+2. study_cards.py
+3. revision_engine.py
+4. exam_modes.py
+5. dashboard.py
+"""
+
 import streamlit as st
-import pandas as pd
-from pathlib import Path
-from datetime import datetime, timedelta, date
-import os
 
-# ================= CONFIG =================
-st.set_page_config("NEET PG Study System", "🧠", layout="wide")
+# ---- Import Modules ----
+from pyq_capture import render_pyq_capture
+from study_cards import render_study_cards
+from revision_engine import render_revision_engine
+from exam_modes import render_exam_modes
+from dashboard import render_dashboard
 
-PYQ_FILE = Path("pyq_topics.csv")
-CARD_FILE = Path("study_cards.csv")
-IMAGE_DIR = Path("card_images")
-IMAGE_DIR.mkdir(exist_ok=True)
+# =========================
+# APP CONFIG
+# =========================
 
-# ================= SCHEMAS =================
-PYQ_COLS = [
-    "id","topic","subject","pyq_years","trigger_line",
-    "revision_count","fail_count",
-    "last_revised","next_revision_date","created_at"
+st.set_page_config(
+    page_title="NEET PG Study System",
+    page_icon="📘",
+    layout="wide"
+)
+
+# =========================
+# SESSION STATE
+# =========================
+
+st.session_state.setdefault("exam_day_mode", False)
+
+# =========================
+# SIDEBAR NAVIGATION
+# =========================
+
+st.sidebar.title("📘 NEET PG")
+
+tabs = [
+    "Dashboard",
+    "Add PYQ",
+    "Study Cards",
+    "Revision",
+    "Exam Modes"
 ]
 
-CARD_COLS = [
-    "card_id","topic_id","card_title",
-    "bullets","external_url","image_paths",
-    "created_at"
-]
+active_tab = st.sidebar.radio("Navigate", tabs)
 
-SUBJECTS = [
-    "Medicine","Surgery","ObG","Pediatrics","Pathology",
-    "Pharmacology","Microbiology","PSM","Anatomy",
-    "Physiology","Biochemistry","Radiology","Dermatology"
-]
+st.sidebar.markdown("---")
 
-# ================= HELPERS =================
-def load_csv(path, cols):
-    if path.exists():
-        df = pd.read_csv(path)
-        for c in cols:
-            if c not in df.columns:
-                df[c] = None
-        return df
-    return pd.DataFrame(columns=cols)
+# Exam Day Mode indicator
+if st.session_state.exam_day_mode:
+    st.sidebar.warning("🧠 Exam Day Mode ON")
 
-def save_csv(df, path):
-    df.to_csv(path, index=False)
+# =========================
+# TAB ROUTING
+# =========================
 
-def next_revision_date(count):
-    schedule = [0,1,3,7,15,30]
-    return pd.Timestamp.now() + timedelta(days=schedule[min(count,5)])
+if active_tab == "Dashboard":
+    render_dashboard()
 
-def is_due(df):
-    today = pd.Timestamp(date.today())
-    return df["next_revision_date"].isna() | (df["next_revision_date"] <= today)
+elif active_tab == "Add PYQ":
+    if st.session_state.exam_day_mode:
+        st.warning("Exam Day Mode is ON. PYQ capture is disabled.")
+    else:
+        render_pyq_capture()
 
-# ================= LOAD DATA =================
-pyq = load_csv(PYQ_FILE, PYQ_COLS)
-cards = load_csv(CARD_FILE, CARD_COLS)
+elif active_tab == "Study Cards":
+    if st.session_state.exam_day_mode:
+        st.warning("Exam Day Mode is ON. Editing Study Cards is disabled.")
+    else:
+        render_study_cards()
 
-for c in ["last_revised","next_revision_date","created_at"]:
-    pyq[c] = pd.to_datetime(pyq[c], errors="coerce")
+elif active_tab == "Revision":
+    render_revision_engine()
 
-# ================= UI =================
-st.title("🧠 NEET PG – Compact Study & Revision System")
-
-tabs = st.tabs([
-    "📊 Dashboard",
-    "➕ PYQ Capture",
-    "🗂️ Study Cards",
-    "🔁 Revision",
-    "🖼️ Image Sprint"
-])
-
-# =====================================================
-# ➕ PYQ CAPTURE (FIXED)
-# =====================================================
-with tabs[1]:
-    st.subheader("➕ PYQ Capture")
-
-    with st.form("pyq_add", clear_on_submit=True):
-        topic = st.text_input("Topic (mandatory)")
-        subject = st.selectbox("Subject", SUBJECTS)
-        years = st.text_input("PYQ Years (optional)")
-        trigger = st.text_area("One-line trigger (mandatory)")
-
-        submitted = st.form_submit_button("Save PYQ")
-
-        if submitted:
-            if not topic.strip() or not trigger.strip():
-                st.error("Topic and trigger line are mandatory")
-            else:
-                next_id = (
-                    1 if pyq.empty or pyq["id"].isna().all()
-                    else int(pyq["id"].max()) + 1
-                )
-
-                row = {
-                    "id": next_id,
-                    "topic": topic.strip(),
-                    "subject": subject,
-                    "pyq_years": years.strip(),
-                    "trigger_line": trigger.strip(),
-                    "revision_count": 0,
-                    "fail_count": 0,
-                    "last_revised": None,
-                    "next_revision_date": pd.Timestamp.now(),
-                    "created_at": pd.Timestamp.now()
-                }
-
-                pyq = pd.concat([pyq, pd.DataFrame([row])], ignore_index=True)
-                save_csv(pyq, PYQ_FILE)
-                st.success("PYQ added successfully")
-                st.rerun()
+elif active_tab == "Exam Modes":
+    render_exam_modes()
