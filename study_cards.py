@@ -157,18 +157,17 @@ def render_study_cards():
             st.session_state.pop("draft_bullets", None)
             st.rerun()
 
-        return
             
-        if card_exists_for_topic(cards, topic_id):
-        st.success("Study Card already exists for this topic.")
-        st.warning("If something is wrong, you can delete and recreate the Study Card.")
+            if card_exists_for_topic(cards, topic_id):
+            st.success("Study Card already exists for this topic.")
+            st.warning("If something is wrong, you can delete and recreate the Study Card.")
 
-        confirm = st.checkbox("I understand this will permanently delete the Study Card")
+            confirm = st.checkbox("I understand this will permanently delete the Study Card")
 
-        if st.button("🗑️ Delete Study Card", disabled=not confirm):
-            cards = delete_study_card(cards, topic_id)
-            save_cards(cards)
-            st.success("Study Card deleted. You can now recreate it.")
-            st.rerun()
+            if st.button("🗑️ Delete Study Card", disabled=not confirm):
+                cards = delete_study_card(cards, topic_id)
+                save_cards(cards)
+                st.success("Study Card deleted. You can now recreate it.")
+                st.rerun()
 
-        return
+            return
