@@ -19,9 +19,34 @@ import pandas as pd
 import os
 import zipfile
 from io import BytesIO
+import shutil
 from datetime import date
 
 from data_layer import load_pyqs, load_cards, is_due
+
+def create_full_backup():
+    buffer = BytesIO()
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+        # CSV files
+        if os.path.exists("pyq_topics.csv"):
+            z.write("pyq_topics.csv")
+        if os.path.exists("study_cards.csv"):
+            z.write("study_cards.csv")
+
+        # Images
+        if os.path.exists("card_images"):
+            for root, _, files in os.walk("card_images"):
+                for f in files:
+                    path = os.path.join(root, f)
+                    z.write(path)
+
+    buffer.seek(0)
+    return buffer
+
+def restore_full_backup(uploaded_zip):
+    with zipfile.ZipFile(uploaded_zip) as z:
+        z.extractall(".")
 
 
 def zip_images(folder="card_images"):
@@ -137,12 +162,34 @@ def render_dashboard():
         )
 
     st.markdown("---")
-    st.markdown("## 💾 Backup & Restore (Important)")
+    st.markdown("## 💾 Backup & Restore")
 
     st.caption(
         "Streamlit Cloud resets data on reboot. "
-        "Download backups regularly to avoid data loss."
-        )
+        "Use Full Backup regularly to avoid data loss."
+    )
+
+# =========================
+# FULL BACKUP / RESTORE
+# =========================
+
+    st.markdown("### 🟢 Full Backup (Recommended)")
+
+    full_backup = create_full_backup()
+    st.download_button(
+        "⬇️ Download Full Backup (ZIP)",
+        data=full_backup,
+        file_name="neet_pg_full_backup.zip"
+    )
+
+    full_restore = st.file_uploader(
+        "⬆️ Restore Full Backup (ZIP)",
+        type="zip"
+    )
+
+    if full_restore:
+        restore_full_backup(full_restore)
+        st.success("Full backup restored. Please reload the app.")
 
 # =========================
 # BACKUP SECTION
