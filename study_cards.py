@@ -48,18 +48,8 @@ def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
 def save_uploaded_images(files, topic_id: int) -> list[str]:
     paths = []
 
-    if not files:
-        return paths
-
     for f in files:
         path = IMAGE_DIR / f"{topic_id}_{f.name}"
-        # Ensure parent directory exists
-        try:
-            os.makedirs(path.parent, exist_ok=True)
-        except Exception:
-            pass
-
-        # f is a Streamlit UploadedFile-like object; read() returns bytes
         with open(path, "wb") as out:
             out.write(f.read())
         paths.append(str(path))
@@ -72,27 +62,23 @@ def save_uploaded_images(files, topic_id: int) -> list[str]:
 # =========================
 
 def delete_study_card(cards_df: pd.DataFrame, topic_id: int) -> pd.DataFrame:
-    card_rows = cards_df[cards_df.topic_id == topic_id]
+    card = cards_df[cards_df.topic_id == topic_id]
 
-    if card_rows.empty:
+    if card.empty:
         return cards_df
 
-    card = card_rows.iloc[0]
+    card = card.iloc[0]
 
-    # Delete images (image_paths expected to be semicolon-separated string)
-    image_paths_str = card.get("image_paths", "") if isinstance(card, pd.Series) else ""
-    if pd.notna(image_paths_str) and image_paths_str:
-        for path in str(image_paths_str).split(";"):
-            path = path.strip()
-            if not path:
-                continue
+    # Delete images
+    if card.image_paths:
+        for path in card.image_paths.split(";"):
             try:
                 os.remove(path)
             except Exception:
                 pass
 
     # Remove card row
-    return cards_df[cards_df.topic_id != topic_id].reset_index(drop=True)
+    return cards_df[cards_df.topic_id != topic_id]
 
 
 # =========================
@@ -125,7 +111,7 @@ def render_study_cards():
     topic_id = ids[labels.index(selected_label)]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
 
-    # If a Study Card already exists for this topic, show existing-card UI first
+    # ---- Card exists ----
     if card_exists_for_topic(cards, topic_id):
         st.success("Study Card already exists for this topic.")
         st.warning("If something is wrong, you can delete and recreate the Study Card.")
@@ -138,7 +124,6 @@ def render_study_cards():
             st.success("Study Card deleted. You can now recreate it.")
             st.rerun()
 
-        # Don't show creation form if a card already exists
         return
 
     # ---- Create Card ----
@@ -167,29 +152,19 @@ def render_study_cards():
             bullet_lines = [b for b in bullets.splitlines() if b.strip()]
             if len(bullet_lines) < 3:
                 st.error("Minimum 3 bullets required.")
-                # preserve current bullets as draft so user doesn't lose work
-                st.session_state["draft_bullets"] = bullets
-                return
+                
 
-            # Save uploaded images and serialize paths as semicolon-separated string
             image_paths = save_uploaded_images(images, topic_id) if images else []
-            image_paths_str = ";".join(image_paths) if image_paths else ""
 
             row = new_card_row(
                 topic_id=topic_id,
                 bullets="\n".join(bullet_lines),
                 card_title=card_title,
                 external_url=external_url,
-                image_paths=image_paths_str
+                image_paths=image_paths
             )
 
-            # Determine next card_id safely
-            if "card_id" in cards.columns and not cards["card_id"].empty:
-                row["card_id"] = safe_next_id(cards["card_id"])
-            else:
-                # start IDs at 1 if no existing cards
-                row["card_id"] = 1
-
+            row["card_id"] = safe_next_id(cards["card_id"])
             cards = pd.concat([cards, pd.DataFrame([row])], ignore_index=True)
             save_cards(cards)
 
