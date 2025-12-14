@@ -2,13 +2,7 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import datetime, timedelta, date
-import re, os
-
-import speech_recognition as sr
-
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Image as RLImage
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4
+import os
 
 # ================= CONFIG =================
 st.set_page_config("NEET PG Study System", "🧠", layout="wide")
@@ -21,7 +15,7 @@ IMAGE_DIR.mkdir(exist_ok=True)
 # ================= SCHEMAS =================
 PYQ_COLS = [
     "id","topic","subject","pyq_years","trigger_line",
-    "status","revision_count","fail_count",
+    "revision_count","fail_count",
     "last_revised","next_revision_date","created_at"
 ]
 
@@ -32,6 +26,7 @@ CARD_COLS = [
 ]
 
 SUBJECTS = [
+    "All",
     "Medicine","Surgery","ObG","Pediatrics","Pathology",
     "Pharmacology","Microbiology","PSM","Anatomy",
     "Physiology","Biochemistry","Radiology","Dermatology"
@@ -68,8 +63,6 @@ for c in ["last_revised","next_revision_date","created_at"]:
 # ================= UI =================
 st.title("🧠 NEET PG – Compact Study & Revision System")
 
-rapid_mode = st.toggle("⚡ Rapid Review Mode", value=False)
-
 tabs = st.tabs([
     "📊 Dashboard",
     "➕ PYQ Capture",
@@ -78,55 +71,27 @@ tabs = st.tabs([
 ])
 
 # =====================================================
-# 📊 DASHBOARD + WEAK ANALYTICS
+# 📊 DASHBOARD
 # =====================================================
 with tabs[0]:
     weak = pyq[pyq.fail_count >= 2]
+    with_cards = set(cards.topic_id.dropna())
+    no_cards = pyq[~pyq.id.isin(with_cards)]
 
     c1,c2,c3 = st.columns(3)
-    c1.metric("Total PYQs", len(pyq))
-    c2.metric("Study Cards", len(cards))
-    c3.metric("Weak Topics", len(weak))
-
-    st.markdown("### 🔴 Weak Areas (Subject-wise)")
-    if not weak.empty:
-        st.bar_chart(weak.subject.value_counts())
-    else:
-        st.success("No weak areas detected 🎉")
-
-    st.markdown("### 🧠 Top Weak Topics")
-    st.dataframe(
-        weak.sort_values("fail_count", ascending=False)
-        [["topic","subject","fail_count"]]
-        .head(5),
-        use_container_width=True
-    )
+    c1.metric("Total Topics", len(pyq))
+    c2.metric("Weak Topics", len(weak))
+    c3.metric("Needs Consolidation", len(no_cards))
 
 # =====================================================
-# ➕ PYQ CAPTURE (VOICE + TEXT)
+# ➕ PYQ CAPTURE
 # =====================================================
 with tabs[1]:
-    st.subheader("➕ PYQ Capture")
-
-    st.markdown("### 🎙️ Voice Input (optional)")
-    audio = st.audio_input("Record PYQ concept")
-
-    recognized_text = ""
-    if audio:
-        r = sr.Recognizer()
-        with sr.AudioFile(audio) as source:
-            audio_data = r.record(source)
-            try:
-                recognized_text = r.recognize_google(audio_data)
-                st.success(f"Recognized: {recognized_text}")
-            except:
-                st.error("Could not recognize speech")
-
     with st.form("pyq_add"):
-        topic = st.text_input("Topic", value=recognized_text)
-        subject = st.selectbox("Subject", SUBJECTS)
+        topic = st.text_input("Topic (micro-concept)")
+        subject = st.selectbox("Subject", SUBJECTS[1:])
         years = st.text_input("PYQ Years")
-        trigger = st.text_area("One-line trigger", value=recognized_text)
+        trigger = st.text_area("One-line trigger")
 
         if st.form_submit_button("Save PYQ"):
             row = {
@@ -135,7 +100,6 @@ with tabs[1]:
                 "subject": subject,
                 "pyq_years": years,
                 "trigger_line": trigger,
-                "status": "not_revised",
                 "revision_count": 0,
                 "fail_count": 0,
                 "last_revised": None,
@@ -151,6 +115,7 @@ with tabs[1]:
 # =====================================================
 with tabs[2]:
     pyq_no_card = pyq[~pyq.id.isin(cards.topic_id)]
+
     if pyq_no_card.empty:
         st.success("All topics consolidated 🎉")
     else:
@@ -158,7 +123,8 @@ with tabs[2]:
             f"{r.topic} ({r.subject})": r.id
             for _, r in pyq_no_card.iterrows()
         }
-        selected = st.selectbox("Select topic", topic_map.keys())
+
+        selected = st.selectbox("Select topic to consolidate", topic_map.keys())
         topic_id = topic_map[selected]
 
         title = st.text_input("Card Title")
@@ -188,26 +154,27 @@ with tabs[2]:
             st.success("Study Card saved")
 
 # =====================================================
-# 🔁 REVISION + IMAGE-ONLY MODE
+# 🔁 REVISION (SUBJECT ALWAYS AVAILABLE)
 # =====================================================
 with tabs[3]:
-    image_only = st.toggle("🖼️ Image-only Mode", value=False)
+    subject_filter = st.selectbox("Select Subject", SUBJECTS)
+    rapid_mode = st.toggle("⚡ Rapid Review Mode")
+    image_only = st.toggle("🖼️ Image-only Mode")
 
     due = pyq[is_due(pyq)]
 
-    if rapid_mode:
-        subject_filter = st.selectbox("Select Subject", SUBJECTS)
-        due = due[
-            (due.subject == subject_filter) &
-            (due.id.isin(cards.topic_id))
-        ]
-        due = due.sort_values(
-            ["fail_count","revision_count"],
-            ascending=False
-        )
+    if subject_filter != "All":
+        due = due[due.subject == subject_filter]
 
-    for idx,row in due.iterrows():
+    # Weak-first ordering
+    due = due.sort_values(
+        ["fail_count","revision_count","next_revision_date"],
+        ascending=[False, False, True]
+    )
+
+    for idx, row in due.iterrows():
         card = cards[cards.topic_id == row.id]
+
         with st.expander(f"{row.topic} ({row.subject})"):
             if not card.empty:
                 c = card.iloc[0]
@@ -227,10 +194,21 @@ with tabs[3]:
                 if c.external_url and not image_only:
                     st.link_button("🔗 Full Topic", c.external_url)
             else:
+                st.warning("No Study Card — revise trigger only")
                 st.markdown(row.trigger_line)
 
-            if not rapid_mode:
-                if st.button("🔁 Still Weak", key=f"fail_{idx}"):
+            c1,c2 = st.columns(2)
+            with c1:
+                if st.button("✅ Revised", key=f"rev_{idx}"):
+                    pyq.at[idx,"revision_count"] += 1
+                    pyq.at[idx,"last_revised"] = pd.Timestamp.now()
+                    pyq.at[idx,"next_revision_date"] = next_revision_date(
+                        pyq.at[idx,"revision_count"]
+                    )
+                    save_csv(pyq, PYQ_FILE)
+                    st.rerun()
+            with c2:
+                if st.button("❌ Weak", key=f"weak_{idx}"):
                     pyq.at[idx,"fail_count"] += 1
                     pyq.at[idx,"next_revision_date"] = pd.Timestamp.now() + timedelta(days=1)
                     save_csv(pyq, PYQ_FILE)
