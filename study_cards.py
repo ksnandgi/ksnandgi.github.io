@@ -156,6 +156,8 @@ def render_study_cards():
             st.success("Study Card saved successfully.")
             st.session_state.pop("draft_bullets", None)
             st.rerun()
+
+        return
             
         if card_exists_for_topic(cards, topic_id):
         st.success("Study Card already exists for this topic.")
