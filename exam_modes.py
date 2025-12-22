@@ -12,7 +12,6 @@ Read-only. No content creation.
 """
 
 import streamlit as st
-import pandas as pd
 import time
 from datetime import date
 
@@ -52,12 +51,11 @@ def render_rapid_review():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
-    # ---- Exam candidates ----
     candidates = pyqs[
         (
-            (pyqs.revision_count == 0) |
-            (pyqs.fail_count > 0) |
-            (data_layer.is_due(pyqs))
+            (pyqs.revision_count == 0)
+            | (pyqs.fail_count > 0)
+            | (data_layer.is_due(pyqs))
         )
         & (~pyqs.id.isin(st.session_state.exam_seen))
     ]
@@ -76,7 +74,7 @@ def render_rapid_review():
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
-    # ---- Optional study card ----
+    # ----- Optional study card -----
     card_df = cards[cards.topic_id == row.id]
 
     if not card_df.empty:
@@ -84,7 +82,7 @@ def render_rapid_review():
 
         if isinstance(card.image_paths, str) and card.image_paths.strip():
             for p in card.image_paths.split(";"):
-            st.image(p)
+                st.image(p)
 
         for line in card.bullets.splitlines():
             st.write(line)
@@ -125,8 +123,8 @@ def render_image_sprint():
 
     init_exam_state()
 
-    cards = data_layer.load_cards()
     pyqs = data_layer.load_pyqs()
+    cards = data_layer.load_cards()
 
     if cards.empty:
         st.info("No study cards with images available.")
