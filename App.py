@@ -74,7 +74,9 @@ elif active_tab == "Study Cards":
     render_study_cards()
 elif active_tab == "Revision":
     if st.session_state.pop("_force_revision", False):
+        render_revision_engine()
+        return
+
     render_revision_engine()
-    return
 elif active_tab == "Exam Modes":
     render_exam_modes()
