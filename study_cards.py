@@ -104,13 +104,12 @@ def render_study_cards():
     st.markdown("---")
 
 
-    st.session_state.focus_mode = True
-
-
+    
     # =========================
     # PREVIEW MODE (IF CARD EXISTS)
     # =========================
     if not card_df.empty and not st.session_state.get("edit_card", False):
+        st.session_state.focus_mode = True
         card = card_df.iloc[0]
 
         st.markdown("### 📄 Study Card Preview")
@@ -133,6 +132,7 @@ def render_study_cards():
         with col1:
             if st.button("✏️ Edit Card"):
                 st.session_state.edit_card = True
+                st.session_state.focus_mode = True
                 st.rerun()
 
         with col2:
