@@ -11,7 +11,7 @@ from dashboard import render_dashboard
 # SESSION STATE
 # =========================
 st.session_state.setdefault("exam_day_mode", False)
-st.session_state.setdefault("app_mode", "Study")
+st.session_state.setdefault("current_view", "dashboard")
 
 # =========================
 # GLOBAL MODE BAR
