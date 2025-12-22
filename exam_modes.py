@@ -82,9 +82,9 @@ def render_rapid_review():
     if not card_df.empty:
         card = card_df.iloc[0]
 
-        if card.image_paths:
+        if isinstance(card.image_paths, str) and card.image_paths.strip():
             for p in card.image_paths.split(";"):
-                st.image(p)
+            st.image(p)
 
         for line in card.bullets.splitlines():
             st.write(line)
@@ -151,7 +151,7 @@ def render_image_sprint():
         topic = pyqs[pyqs.id == card.topic_id].topic.values[0]
         st.markdown(f"### {topic}")
 
-        if card.image_paths:
+        if isinstance(card.image_paths, str) and card.image_paths.strip():
             for p in card.image_paths.split(";"):
                 st.image(p)
 
