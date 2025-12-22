@@ -1,12 +1,5 @@
 """
 Module 2 — Study Cards
-
-Responsibilities:
-- Manual Study Card creation
-- Auto Study Card draft generator
-- Image support
-- External URL
-- Delete whole Study Card safely
 """
 
 import streamlit as st
@@ -69,7 +62,6 @@ def delete_study_card(cards_df: pd.DataFrame, topic_id: int) -> pd.DataFrame:
 
     card = card.iloc[0]
 
-    # Delete images
     if card.image_paths:
         for path in card.image_paths.split(";"):
             try:
@@ -77,7 +69,6 @@ def delete_study_card(cards_df: pd.DataFrame, topic_id: int) -> pd.DataFrame:
             except Exception:
                 pass
 
-    # Remove card row
     return cards_df[cards_df.topic_id != topic_id]
 
 
@@ -85,11 +76,11 @@ def delete_study_card(cards_df: pd.DataFrame, topic_id: int) -> pd.DataFrame:
 # MAIN UI
 # =========================
 
-
 def render_study_cards():
+    # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
-    st.info("Switch to 🛠️ Build Mode to create or manage Study Cards.")
-    return
+        st.info("Switch to 🛠️ Build Mode to create or manage Study Cards.")
+        return
 
     st.subheader("🗂️ Study Cards")
 
@@ -108,15 +99,11 @@ def render_study_cards():
     labels = pyqs["label"].tolist()
     ids = pyqs["id"].tolist()
 
-    if not labels:
-        st.warning("No valid PYQ topics available.")
-        return
-
     selected_label = st.selectbox("Select PYQ Topic", labels)
     topic_id = ids[labels.index(selected_label)]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
 
-    # ---- Card exists ----
+    # ---- Existing card ----
     if card_exists_for_topic(cards, topic_id):
         st.success("Study Card already exists for this topic.")
         st.warning("If something is wrong, you can delete and recreate the Study Card.")
@@ -131,10 +118,10 @@ def render_study_cards():
 
         return
 
-    # ---- Create Card ----
+    # ---- Create card ----
     st.markdown("### ➕ Create Study Card")
 
-    with st.expander("✍️ Auto Study Card Draft (Optional)"):
+    with st.expander("✍️ Auto Draft (Optional)"):
         raw_text = st.text_area("Paste textbook / notes", height=150)
         if st.button("Generate Draft") and raw_text.strip():
             st.session_state["draft_bullets"] = auto_generate_bullets(raw_text)
@@ -142,7 +129,7 @@ def render_study_cards():
     bullets_default = st.session_state.get("draft_bullets", "")
 
     with st.form("card_form"):
-        card_title = st.text_input("Card Title (optional)", value=topic_row.topic)
+        card_title = st.text_input("Card Title", value=topic_row.topic)
         bullets = st.text_area("Bullets (min 3)", value=bullets_default, height=180)
         external_url = st.text_input("External URL (optional)")
         images = st.file_uploader(
@@ -157,7 +144,7 @@ def render_study_cards():
             bullet_lines = [b for b in bullets.splitlines() if b.strip()]
             if len(bullet_lines) < 3:
                 st.error("Minimum 3 bullets required.")
-                
+                return
 
             image_paths = save_uploaded_images(images, topic_id) if images else []
 
@@ -176,10 +163,3 @@ def render_study_cards():
             st.success("Study Card saved successfully.")
             st.session_state.pop("draft_bullets", None)
             st.rerun()
-
-def require_mode(allowed_modes, message):
-    if st.session_state.app_mode not in allowed_modes:
-        st.info(message)
-        return False
-    return True
-
