@@ -126,7 +126,9 @@ def render_study_cards():
         if isinstance(card.external_url, str) and card.external_url.strip():
             st.markdown(f"[🔗 External Reference]({card.external_url})")
 
-        col1, col2 = st.columns(2)
+        st.markdown("---")
+
+        col1, col2, col3 = st.columns(3)
 
         with col1:
             if st.button("✏️ Edit Card"):
@@ -137,6 +139,12 @@ def render_study_cards():
             if st.button("🗑️ Delete Card", type="secondary"):
                 data_layer.delete_card(topic_id)
                 st.success("Study card deleted. You can recreate it anytime.")
+                st.session_state.edit_card = False
+                st.session_state.focus_mode = False
+                st.rerun()
+
+        with col3:
+            if st.button("← Back"):
                 st.session_state.edit_card = False
                 st.session_state.focus_mode = False
                 st.rerun()
