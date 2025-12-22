@@ -141,7 +141,7 @@ def render_revision_engine():
         if st.button("❌ Weak"):
             row.fail_count += 1
             row.last_revised = date.today()
-            row.next_revision_date = compute_next_revision(
+            row.next_revision_date = data_layer.compute_next_revision(
                 int(row.revision_count)
             )
 
