@@ -90,9 +90,9 @@ def render_revision_engine():
     candidates = prioritize(candidates)
 
     # Session-level suppression
-    candidates = candidates[
-        ~candidates.id.isin(st.session_state.session_seen)
-    ]
+   # candidates = candidates[
+   #     ~candidates.id.isin(st.session_state.session_seen)
+   # ]
 
     if candidates.empty:
         st.info("You have revised all available topics in this session.")
