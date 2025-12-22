@@ -22,7 +22,7 @@ from io import BytesIO
 import shutil
 from datetime import date
 
-from data_layer import load_pyqs, load_cards, is_due
+import data_layer
 
 def create_full_backup():
     buffer = BytesIO()
@@ -94,8 +94,8 @@ def render_dashboard():
     if mode == "Study":
         st.markdown("## 📘 Today’s Revision")
 
-        pyqs = data.layer.load_pyqs()
-        cards = load_cards()
+        pyqs = data_layer.load_pyqs()
+        cards = data_layer.load_cards()
 
         # Only topics with study cards
         pyqs = pyqs[pyqs.id.isin(cards.topic_id)]
