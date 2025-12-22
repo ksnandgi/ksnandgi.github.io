@@ -114,7 +114,7 @@ def render_study_cards():
         return
 
     # ---- Create card ----
-    st.markdown("### ➕ Create Study Card")
+    st.markdown("➕ Create/Update Study Card")
 
     with st.expander("✍️ Auto Draft (Optional)"):
         raw_text = st.text_area("Paste textbook / notes", height=150)
