@@ -33,7 +33,7 @@ def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
 def save_uploaded_images(files, topic_id: int) -> list[str]:
     paths = []
 
-    # 🔑 Ensure image directory exists (CRITICAL FOR STREAMLIT CLOUD)
+    # Ensure directory exists (Streamlit Cloud safe)
     data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
     for f in files:
@@ -43,28 +43,6 @@ def save_uploaded_images(files, topic_id: int) -> list[str]:
         paths.append(str(path))
 
     return paths
-
-
-# =========================
-# DELETE STUDY CARD
-# =========================
-
-def delete_study_card(cards_df: pd.DataFrame, topic_id: int) -> pd.DataFrame:
-    card = cards_df[cards_df.topic_id == topic_id]
-
-    if card.empty:
-        return cards_df
-
-    card = card.iloc[0]
-
-    if card.image_paths:
-        for path in card.image_paths.split(";"):
-            try:
-                os.remove(path)
-            except Exception:
-                pass
-
-    return cards_df[cards_df.topic_id != topic_id]
 
 
 # =========================
@@ -88,73 +66,129 @@ def render_study_cards():
         st.markdown("➡️ Add PYQs first, then come back to create Study Cards.")
         return
 
+    # =========================
+    # SECTION 1 — CONTEXT
+    # =========================
     pyqs = pyqs.copy()
     pyqs["label"] = pyqs["topic"] + " (" + pyqs["subject"] + ")"
 
-    labels = pyqs["label"].tolist()
-    ids = pyqs["id"].tolist()
+    topic_map = dict(zip(pyqs["label"], pyqs["id"]))
 
-    selected_label = st.selectbox("Select PYQ Topic", labels)
-    topic_id = ids[labels.index(selected_label)]
+    selected_label = st.selectbox(
+        "📘 Select Topic",
+        list(topic_map.keys())
+    )
+
+    topic_id = topic_map[selected_label]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
 
-    # ---- Existing card ----
-    if data_layer.card_exists_for_topic(cards, topic_id):
-        st.success("Study Card already exists for this topic.")
-        st.warning("If something is wrong, you can delete and recreate the Study Card.")
+    card_df = cards[cards.topic_id == topic_id]
 
-        confirm = st.checkbox("I understand this will permanently delete the Study Card")
+    st.caption(f"Subject: {topic_row.subject}")
+    st.markdown("---")
 
-        if st.button("🗑️ Delete Study Card", disabled=not confirm):
-            cards = delete_study_card(cards, topic_id)
-            save_cards(cards)
-            st.success("Study Card deleted. You can now recreate it.")
-            st.rerun()
+    # =========================
+    # PREVIEW MODE (IF CARD EXISTS)
+    # =========================
+    if not card_df.empty and not st.session_state.get("edit_card", False):
+        card = card_df.iloc[0]
+
+        st.markdown("### 📄 Study Card Preview")
+
+        for line in card.bullets.splitlines():
+            st.write(line)
+
+        if isinstance(card.image_paths, str) and card.image_paths.strip():
+            st.markdown("#### 🖼️ Images")
+            for p in card.image_paths.split(";"):
+                st.image(p)
+
+        if isinstance(card.external_url, str) and card.external_url.strip():
+            st.markdown(f"[🔗 External Reference]({card.external_url})")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("✏️ Edit Card"):
+                st.session_state.edit_card = True
+                st.rerun()
+
+        with col2:
+            if st.button("🗑️ Delete Card", type="secondary"):
+                data_layer.delete_card(topic_id)
+                st.success("Study card deleted. You can recreate it anytime.")
+                st.session_state.edit_card = False
+                st.rerun()
 
         return
 
-    # ---- Create card ----
-    st.markdown("➕ Create/Update Study Card")
+    # =========================
+    # SECTION 2 — CORE LEARNING
+    # =========================
+    st.markdown("### 🧠 Key Points")
 
+    default_bullets = (
+        card_df.iloc[0].bullets if not card_df.empty else ""
+    )
+
+    # Auto-draft expander
     with st.expander("✍️ Auto Draft (Optional)"):
         raw_text = st.text_area("Paste textbook / notes", height=150)
         if st.button("Generate Draft") and raw_text.strip():
             st.session_state["draft_bullets"] = auto_generate_bullets(raw_text)
 
-    bullets_default = st.session_state.get("draft_bullets", "")
+    bullets = st.text_area(
+        "One concept per line (exam-oriented)",
+        value=st.session_state.get("draft_bullets", default_bullets),
+        height=180,
+        placeholder="• Sudden chest pain\n• Hyperresonance\n• Tracheal deviation (tension pneumothorax)"
+    )
 
-    with st.form("card_form"):
-        card_title = st.text_input("Card Title", value=topic_row.topic)
-        bullets = st.text_area("Bullets (min 3)", value=bullets_default, height=180)
-        external_url = st.text_input("External URL (optional)")
-        images = st.file_uploader(
-            "Upload images (optional)",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True
-        )
+    st.caption("Tip: Keep bullets short and high-yield.")
 
-        submitted = st.form_submit_button("Save Study Card")
+    # =========================
+    # SECTION 3 — IMAGES
+    # =========================
+    st.markdown("### 🖼️ Attach Images (Optional)")
 
-        if submitted:
+    images = st.file_uploader(
+        "Upload X-ray / CT / ECG images",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True
+    )
+
+    st.caption("Images improve recall. You can add them later.")
+
+    # =========================
+    # SECTION 4 — ACTIONS
+    # =========================
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("💾 Save Study Card", type="primary"):
             bullet_lines = [b for b in bullets.splitlines() if b.strip()]
             if len(bullet_lines) < 3:
-                st.error("Minimum 3 bullets required.")
+                st.error("Minimum 3 bullet points required.")
                 return
 
             image_paths = save_uploaded_images(images, topic_id) if images else []
 
-            row = data_layer.new_card_row(
+            data_layer.upsert_card(
                 topic_id=topic_id,
+                card_title=topic_row.topic,
                 bullets="\n".join(bullet_lines),
-                card_title=card_title,
-                external_url=external_url,
-                image_paths=image_paths
+                image_paths=";".join(image_paths),
+                external_url=""
             )
 
-            row["card_id"] = data_layer.safe_next_id(cards["card_id"])
-            cards = pd.concat([cards, pd.DataFrame([row])], ignore_index=True)
-            data_layer.save_cards(cards)
-
-            st.success("Study Card saved successfully.")
+            st.success("Study card saved successfully.")
             st.session_state.pop("draft_bullets", None)
+            st.session_state.edit_card = False
+            st.rerun()
+
+    with col2:
+        if st.button("← Cancel"):
+            st.session_state.edit_card = False
             st.rerun()
