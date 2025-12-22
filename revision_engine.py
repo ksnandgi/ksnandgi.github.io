@@ -126,7 +126,11 @@ def render_revision_engine():
                 int(row.revision_count)
             )
 
-            pyqs.loc[pyqs.id == row.id, :] = row
+            pyqs.loc[pyqs.id == row.id, "revision_count"] = int(row.revision_count)
+            pyqs.loc[pyqs.id == row.id, "fail_count"] = int(row.fail_count)
+            pyqs.loc[pyqs.id == row.id, "last_revised"] = row.last_revised
+            pyqs.loc[pyqs.id == row.id, "next_revision_date"] = row.next_revision_date
+
             data_layer.save_pyqs(pyqs)
 
             st.session_state.session_seen.add(row.id)
@@ -139,8 +143,11 @@ def render_revision_engine():
             row.last_revised = date.today()
             row.next_revision_date = compute_next_revision(row)
 
-            pyqs.loc[pyqs.id == row.id, :] = row
-            save_pyqs(pyqs)
+            pyqs.loc[pyqs.id == row.id, "fail_count"] = int(row.fail_count)
+            pyqs.loc[pyqs.id == row.id, "last_revised"] = row.last_revised
+            pyqs.loc[pyqs.id == row.id, "next_revision_date"] = row.next_revision_date
+
+            data_layer.save_pyqs(pyqs)
 
             st.session_state.session_seen.add(row.id)
             st.rerun()
