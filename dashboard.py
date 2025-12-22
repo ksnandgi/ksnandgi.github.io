@@ -200,6 +200,33 @@ def render_dashboard():
         return
 
     # =========================
-    # OTHER MODES (PLACEHOLDER)
+    # ⚡ EXAM MODE DASHBOARD
     # =========================
-    st.info("Dashboard for this mode will be available soon.")
+    if mode == "Exam":
+        st.markdown("## ⚡ Exam Recall")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("⚡ Rapid Review", use_container_width=True):
+                st.session_state["_go_rapid_review"] = True
+                st.rerun()
+
+        with col2:
+            if st.button("🖼️ Image Sprint", use_container_width=True):
+                st.session_state["_go_image_sprint"] = True
+                st.rerun()
+
+        st.markdown("---")
+
+        # Exam Day Mode guardrail
+        exam_day = st.toggle(
+            "🧠 Exam Day Mode",
+            value=st.session_state.get("exam_day_mode", False)
+        )
+        st.session_state.exam_day_mode = exam_day
+
+        if exam_day:
+            st.warning("Exam Day Mode is ON. Editing and capture are disabled.")
+
+        return
