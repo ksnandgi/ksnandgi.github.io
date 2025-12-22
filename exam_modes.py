@@ -101,7 +101,7 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
             data_layer.save_pyqs(pyqs)
-            st.session_state.exam_seen.add(row.id)
+         #  st.session_state.exam_seen.add(row.id)
             st.rerun()
 
     with col2:
@@ -110,7 +110,7 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
             data_layer.save_pyqs(pyqs)
-            st.session_state.exam_seen.add(row.id)
+          # st.session_state.exam_seen.add(row.id)
             st.rerun()
 
 
@@ -143,7 +143,7 @@ def render_image_sprint():
     speed = st.selectbox("Sprint speed", ["Slow", "Normal", "Fast"])
     delay = {"Slow": 4, "Normal": 2, "Fast": 1}[speed]
 
-    auto = st.toggle("Auto-advance", value=True)
+    auto = st.toggle("Auto-advance", value=False)
 
     # Reset sprint if subject changes
     if st.session_state.get("last_sprint_subject") != subject:
