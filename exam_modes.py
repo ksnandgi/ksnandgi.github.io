@@ -123,7 +123,7 @@ def render_image_sprint():
         if card.image_paths:
             for p in card.image_paths.split(";"):
                 border = "🟢" if p in st.session_state.image_seen else "⚪"
-                st.markdown(f"{border}")
+                st.markdown(border)
                 st.image(p)
                 st.session_state.image_seen.add(p)
 
@@ -159,11 +159,11 @@ def render_exam_day_toggle():
 # MAIN ENTRY
 # =========================
 
-
 def render_exam_modes():
+    # ---- MODE GUARD ----
     if st.session_state.app_mode != "Exam":
-    st.info("Switch to ⚡ Exam Mode to access Rapid Review and Image Sprint.")
-    return
+        st.info("Switch to ⚡ Exam Mode to access Rapid Review and Image Sprint.")
+        return
 
     render_exam_day_toggle()
 
@@ -177,9 +177,3 @@ def render_exam_modes():
         render_rapid_review()
     else:
         render_image_sprint()
-
-def require_mode(allowed_modes, message):
-    if st.session_state.app_mode not in allowed_modes:
-        st.info(message)
-        return False
-    return True
