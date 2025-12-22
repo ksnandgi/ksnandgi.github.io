@@ -43,7 +43,7 @@ def render_pyq_capture():
             pyq_years=years.strip()
         )
 
-        row["id"] = safe_next_id(pyqs["id"])
+        row["id"] = data_layer.safe_next_id(pyqs["id"])
         pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
         save_pyqs(pyqs)
 
