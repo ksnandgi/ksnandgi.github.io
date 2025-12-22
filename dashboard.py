@@ -106,7 +106,7 @@ def render_dashboard():
             return
 
         # Due or weak topics
-        due = pyqs[is_due(pyqs)]
+        due = pyqs[data_layer.is_due(pyqs)]
         weak = pyqs[pyqs.fail_count > 0]
 
         today_list = (
