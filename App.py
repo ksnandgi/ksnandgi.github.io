@@ -30,11 +30,38 @@ st.set_page_config(
     layout="wide"
 )
 
+st.title("📘 NEET PG Study System")
+
+render_mode_bar()
+
+st.markdown("---")
+
+
 # =========================
 # SESSION STATE
 # =========================
 
 st.session_state.setdefault("exam_day_mode", False)
+
+# =========================
+# GLOBAL APP MODE
+# =========================
+st.session_state.setdefault("app_mode", "Study")
+
+def render_mode_bar():
+    st.markdown("### Mode")
+
+    cols = st.columns(3)
+
+    modes = ["Study", "Build", "Exam"]
+
+    for col, mode in zip(cols, modes):
+        if col.button(
+            f"{'📘' if mode=='Study' else '🛠️' if mode=='Build' else '⚡'} {mode}",
+            use_container_width=True,
+            type="primary" if st.session_state.app_mode == mode else "secondary",
+        ):
+            st.session_state.app_mode = mode
 
 # =========================
 # SIDEBAR NAVIGATION
