@@ -186,7 +186,7 @@ def render_dashboard():
                 st.rerun()
 
         with col2:
-            if st.button("🗂️ Create Study Card", use_container_width=True):
+            if st.button("🗂️ Create/Update Study Card", use_container_width=True):
                 st.session_state.current_view = "study_cards"
                 st.rerun()
 
