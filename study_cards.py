@@ -34,7 +34,7 @@ def save_uploaded_images(files, topic_id: int) -> list[str]:
     paths = []
 
     for f in files:
-        path = IMAGE_DIR / f"{topic_id}_{f.name}"
+        path = data_layer.IMAGE_DIR / f"{topic_id}_{f.name}"
         with open(path, "wb") as out:
             out.write(f.read())
         paths.append(str(path))
