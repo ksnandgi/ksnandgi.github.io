@@ -33,6 +33,7 @@ def init_exam_state():
 # =========================
 
 def render_rapid_review():
+    st.write("Debug:Entered Rapid review")
     st.subheader("⚡ Rapid Review")
 
     init_exam_state()
