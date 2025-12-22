@@ -220,7 +220,7 @@ def render_dashboard():
 
         with col2:
             if st.button("🖼️ Image Sprint", use_container_width=True):
-                st.session_state,current_view = "image_sprint"
+                st.session_state.current_view = "image_sprint"
                 st.rerun()
 
         st.markdown("---")
