@@ -162,6 +162,44 @@ def render_dashboard():
         return
 
     # =========================
+    # 🛠️ BUILD MODE DASHBOARD
+    # =========================
+    if mode == "Build":
+        st.markdown("## 🛠️ Build Your Knowledge Base")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("➕ Add PYQ", use_container_width=True):
+                st.session_state["_go_add_pyq"] = True
+                st.rerun()
+
+        with col2:
+            if st.button("🗂️ Create Study Card", use_container_width=True):
+                st.session_state["_go_study_cards"] = True
+                st.rerun()
+
+        # -------------------------
+        # Contextual Info
+        # -------------------------
+        st.markdown("---")
+
+        pyqs = load_pyqs()
+        cards = load_cards()
+
+        total_pyqs = len(pyqs)
+        total_cards = len(cards)
+        pending_cards = pyqs[~pyqs.id.isin(cards.topic_id)]
+
+        st.caption(f"Total PYQs added: {total_pyqs}")
+        st.caption(f"Study Cards created: {total_cards}")
+
+        if not pending_cards.empty:
+            st.caption(f"Topics pending Study Cards: {len(pending_cards)}")
+
+        return
+
+    # =========================
     # OTHER MODES (PLACEHOLDER)
     # =========================
     st.info("Dashboard for this mode will be available soon.")
