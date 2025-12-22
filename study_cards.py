@@ -150,7 +150,7 @@ def render_study_cards():
 
             row["card_id"] = data_layer.safe_next_id(cards["card_id"])
             cards = pd.concat([cards, pd.DataFrame([row])], ignore_index=True)
-            save_cards(cards)
+            data_layer.save_cards(cards)
 
             st.success("Study Card saved successfully.")
             st.session_state.pop("draft_bullets", None)
