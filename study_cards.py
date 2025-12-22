@@ -53,6 +53,8 @@ def render_study_cards():
     # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.info("Switch to 🛠️ Build Mode to create or manage Study Cards.")
+        st.session_state.focus_mode = False
+        st.session_state.edit_card = False    # 🔑 SAFETY RESET
         return
 
     st.subheader("🗂️ Study Cards")
@@ -133,6 +135,7 @@ def render_study_cards():
             if st.button("✏️ Edit Card"):
                 st.session_state.edit_card = True
                 st.session_state.focus_mode = True
+                st.session_state.current_view = "dashboard"  # 🔑 KEY LINE
                 st.rerun()
 
         with col2:
@@ -141,12 +144,14 @@ def render_study_cards():
                 st.success("Study card deleted. You can recreate it anytime.")
                 st.session_state.edit_card = False
                 st.session_state.focus_mode = False
+                st.session_state.current_view = "dashboard"  # 🔑 KEY LINE
                 st.rerun()
 
         with col3:
             if st.button("← Back"):
                 st.session_state.edit_card = False
                 st.session_state.focus_mode = False
+                st.session_state.current_view = "dashboard"  # 🔑 KEY LINE
                 st.rerun()
 
         return
@@ -216,10 +221,12 @@ def render_study_cards():
             st.session_state.pop("draft_bullets", None)
             st.session_state.edit_card = False
             st.session_state.focus_mode = False
+            st.session_state.current_view = "dashboard"  # 🔑 KEY LINE
             st.rerun()
 
     with col2:
         if st.button("← Cancel"):
             st.session_state.edit_card = False
             st.session_state.focus_mode = False
+            st.session_state.current_view = "dashboard"  # 🔑 KEY LINE
             st.rerun()
