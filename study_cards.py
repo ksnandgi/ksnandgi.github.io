@@ -140,7 +140,7 @@ def render_study_cards():
 
             image_paths = save_uploaded_images(images, topic_id) if images else []
 
-            row = new_card_row(
+            row = data_layer.new_card_row(
                 topic_id=topic_id,
                 bullets="\n".join(bullet_lines),
                 card_title=card_title,
