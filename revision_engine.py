@@ -192,3 +192,9 @@ def render_revision_engine():
         st.session_state.last_revision_date = today
 
     st.caption(f"Revision streak: {st.session_state.revision_streak} days")
+
+def require_mode(allowed_modes, message):
+    if st.session_state.app_mode not in allowed_modes:
+        st.info(message)
+        return False
+    return True
