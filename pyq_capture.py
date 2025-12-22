@@ -59,4 +59,13 @@ def render_pyq_capture():
         save_pyqs(pyqs)
 
         st.success("PYQ added successfully.")
-        st.rerun()
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➕ Add Another PYQ"):
+                st.rerun()
+
+        with col2:
+            if st.button("🏠 Back to Dashboard"):
+                st.session_state.current_view = "dashboard"
+                st.rerun()
