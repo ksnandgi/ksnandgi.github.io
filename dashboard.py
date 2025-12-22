@@ -82,168 +82,86 @@ def generate_daily_plan(pyqs: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
 # MAIN DASHBOARD
 # =========================
 
+
 def render_dashboard():
-    st.subheader("📊 Dashboard")
+    st.subheader("🏠 Dashboard")
 
-    pyqs = load_pyqs()
-    cards = load_cards()
+    mode = st.session_state.app_mode
 
-    if pyqs.empty:
-        st.info("Start by adding PYQ topics.")
+    # =========================
+    # 📘 STUDY MODE DASHBOARD
+    # =========================
+    if mode == "Study":
+        st.markdown("## 📘 Today’s Revision")
 
-    # ---- Daily Plan ----
-    plan = generate_daily_plan(pyqs)
+        pyqs = load_pyqs()
+        cards = load_cards()
 
-    st.markdown("### 📅 Today’s Plan")
+        # Only topics with study cards
+        pyqs = pyqs[pyqs.id.isin(cards.topic_id)]
 
-    if plan.empty:
-        st.success("You’re all caught up for today.")
-    else:
-        for _, row in plan.iterrows():
-            st.markdown(f"- **{row.topic}** ({row.subject})")
+        if pyqs.empty:
+            st.info("No topics ready for revision yet.")
+            st.markdown("➡️ Add PYQs and Study Cards in Build Mode.")
+            return
 
-    st.caption(
-        "Why this today? Focuses on due and weak topics to maximize recall efficiency."
-    )
+        # Due or weak topics
+        due = pyqs[is_due(pyqs)]
+        weak = pyqs[pyqs.fail_count > 0]
 
-    # ---- Next Best Action ----
-    weak_subjects = (
-        pyqs[pyqs.fail_count >= 2]
-        .subject.value_counts()
-    )
+        today_list = (
+            due if not due.empty else weak
+        ).sort_values(
+            by=["fail_count", "revision_count"],
+            ascending=[False, True]
+        ).head(5)
 
-    if not weak_subjects.empty:
-        top_subject = weak_subjects.index[0]
-        st.info(
-            f"**Next best action:** Revise 3 weak topics from {top_subject}"
-        )
-    else:
-        st.info(
-            "**Next best action:** Continue regular revision to maintain strength"
-        )
+        if today_list.empty:
+            st.success("You’re all caught up for today 🎉")
+        else:
+            for _, row in today_list.iterrows():
+                st.markdown(
+                    f"- **{row.topic}**  \n"
+                    f"<small>{row.subject}</small>",
+                    unsafe_allow_html=True
+                )
 
-    # ---- Weak Area Overview ----
-    st.markdown("---")
-    st.markdown("### ⚠️ Weak Areas")
+            st.markdown("")
 
-    if weak_subjects.empty:
-        st.success("No persistent weak areas identified.")
-    else:
-        for subject, count in weak_subjects.items():
-            st.markdown(f"- {subject}: {count} topics")
+            if st.button("▶️ Start Revision", use_container_width=True):
+                st.session_state["_force_revision"] = True
+                st.rerun()
 
-    # ---- Progress Indicators ----
-    st.markdown("---")
-    st.markdown("### 📈 Progress Overview")
+        # -------------------------
+        # Quick Actions
+        # -------------------------
+        st.markdown("---")
+        st.markdown("### Quick Actions")
 
-    total_topics = len(pyqs)
-    with_cards = pyqs.id.isin(cards.topic_id).sum()
-    without_cards = total_topics - with_cards
+        col1, col2 = st.columns(2)
 
-    st.markdown(f"- Total topics captured: **{total_topics}**")
-    st.markdown(f"- Topics with Study Cards: **{with_cards}**")
-    st.markdown(f"- Topics needing consolidation: **{without_cards}**")
+        with col1:
+            st.button("🖼️ Image Sprint", use_container_width=True)
 
-    # ---- Soft Subject Balance ----
-    recent_focus = pyqs.sort_values(
-        by="last_revised",
-        ascending=False
-    ).head(10)
+        with col2:
+            st.button("📌 Weak Areas", use_container_width=True)
 
-    if not recent_focus.empty:
-        dominant_subject = recent_focus.subject.mode().iloc[0]
-        st.caption(f"Recent focus: {dominant_subject}-heavy")
+        # -------------------------
+        # Light Progress Overview
+        # -------------------------
+        st.markdown("---")
+        st.markdown("### Progress Overview")
 
-    # ---- Exam Mode Nudge ----
-    today = date.today()
-    if today.month in [12, 1, 2, 3]:  # example exam window
-        st.warning(
-            "You’ve been revising consistently. Consider using Rapid Review or Image Sprint modes."
-        )
+        revised = pyqs.revision_count.sum()
+        weak_count = (pyqs.fail_count > 0).sum()
 
-    st.markdown("---")
-    st.markdown("## 💾 Backup & Restore")
+        st.caption(f"Topics revised so far: {revised}")
+        if weak_count:
+            st.caption(f"Weak topics pending: {weak_count}")
 
-    st.caption(
-        "Streamlit Cloud resets data on reboot. "
-        "Use Full Backup regularly to avoid data loss."
-    )
+        return
 
-# =========================
-# FULL BACKUP / RESTORE
-# =========================
-
-    st.markdown("### 🟢 Full Backup (Recommended)")
-
-    full_backup = create_full_backup()
-    st.download_button(
-        "⬇️ Download Full Backup (ZIP)",
-        data=full_backup,
-        file_name="neet_pg_full_backup.zip"
-    )
-
-    full_restore = st.file_uploader(
-        "⬆️ Restore Full Backup (ZIP)",
-        type="zip"
-    )
-
-    if full_restore:
-        restore_full_backup(full_restore)
-        st.success("Full backup restored. Please reload the app.")
-
-# =========================
-# BACKUP SECTION
-# =========================
-    st.markdown("### ⬇️ Backup")
-
-    if os.path.exists("pyq_topics.csv"):
-        st.download_button(
-            "Download PYQs CSV",
-            data=open("pyq_topics.csv", "rb"),
-            file_name="pyq_topics.csv"
-        )
-
-    if os.path.exists("study_cards.csv"):
-        st.download_button(
-            "Download Study Cards CSV",
-            data=open("study_cards.csv", "rb"),
-            file_name="study_cards.csv"
-        )
-
-    if os.path.exists("card_images"):
-        img_zip = zip_images()
-        st.download_button(
-            "Download Card Images (ZIP)",
-            data=img_zip,
-            file_name="card_images.zip"
-        )
-
-# =========================
-# RESTORE SECTION
-# =========================
-    st.markdown("### ⬆️ Restore")
-
-    pyq_file = st.file_uploader("Restore PYQs CSV", type="csv")
-    if pyq_file:
-        with open("pyq_topics.csv", "wb") as f:
-            f.write(pyq_file.getbuffer())
-        st.success("PYQs restored. Reload the app.")
-
-    card_file = st.file_uploader("Restore Study Cards CSV", type="csv")
-    if card_file:
-        with open("study_cards.csv", "wb") as f:
-            f.write(card_file.getbuffer())
-        st.success("Study Cards restored. Reload the app.")
-
-    img_zip_file = st.file_uploader("Restore Card Images (ZIP)", type="zip")
-    if img_zip_file:
-        with zipfile.ZipFile(img_zip_file) as z:
-            z.extractall("card_images")
-        st.success("Images restored. Reload the app.")
-
-def require_mode(allowed_modes, message):
-    if st.session_state.app_mode not in allowed_modes:
-        st.info(message)
-        return False
-    return True
-
+    # =========================
+    # OTHER MODES (PLACEHOLDER)
+    # =========================
+    st.info("Dashboard for this mode will be available soon.")
