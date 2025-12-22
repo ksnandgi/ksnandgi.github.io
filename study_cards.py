@@ -101,6 +101,10 @@ def render_study_cards():
     st.caption(f"Subject: {topic_row.subject}")
     st.markdown("---")
 
+
+    st.session_state.focus_mode = True
+
+
     # =========================
     # PREVIEW MODE (IF CARD EXISTS)
     # =========================
@@ -132,6 +136,7 @@ def render_study_cards():
                 data_layer.delete_card(topic_id)
                 st.success("Study card deleted. You can recreate it anytime.")
                 st.session_state.edit_card = False
+                st.session_state.focus_mode = False
                 st.rerun()
 
         return
@@ -200,9 +205,11 @@ def render_study_cards():
             st.success("Study card saved successfully.")
             st.session_state.pop("draft_bullets", None)
             st.session_state.edit_card = False
+            st.session_state.focus_mode = False
             st.rerun()
 
     with col2:
         if st.button("← Cancel"):
             st.session_state.edit_card = False
+            st.session_state.focus_mode = False
             st.rerun()
