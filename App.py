@@ -89,7 +89,10 @@ st.set_page_config(
 # =========================
 st.title("📘 NEET PG Study System")
 
-if st.session_state.current_view not in ["backup", "restore"]:
+if (
+    st.session_state.current_view not in ["backup", "restore"]
+    and not st.session_state.get("focus_mode", False)
+):
     render_mode_bar()
 
 st.markdown("---")
