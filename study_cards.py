@@ -50,6 +50,10 @@ def save_uploaded_images(files, topic_id: int) -> list[str]:
 # =========================
 
 def render_study_cards():
+    # 🔑 HARD VIEW GUARD (CRITICAL)
+    if st.session_state.current_view != "study_cards":
+        return
+
     # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.info("Switch to 🛠️ Build Mode to create or manage Study Cards.")
