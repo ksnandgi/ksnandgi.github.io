@@ -127,3 +127,10 @@ elif view == "backup":
 
 elif view == "restore":
     render_restore_page()  # new page
+
+elif view == "image_sprint":
+    render_exam_modes()
+
+elif view == "revision_weak":
+    st.session_state.setdefault("revision_filter", "weak")
+    render_revision_engine()
