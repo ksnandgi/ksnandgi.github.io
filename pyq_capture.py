@@ -163,3 +163,9 @@ def render_pyq_capture():
 
             st.success("PYQ saved successfully")
             st.rerun()
+
+def require_mode(allowed_modes, message):
+    if st.session_state.app_mode not in allowed_modes:
+        st.info(message)
+        return False
+    return True
