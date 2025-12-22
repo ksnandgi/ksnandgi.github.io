@@ -186,9 +186,11 @@ def render_exam_modes():
         return
 
     # Decide tool purely based on current_view
-    view = st.session_state.get("current_view", "rapid_review")
+    view = st.session_state.get("current_view")
 
     if view == "image_sprint":
         render_image_sprint()
-    else:
+    elif view =="rapid_review":
         render_rapid_review()
+    else:
+        st.info("Select an exam tool to begin")
