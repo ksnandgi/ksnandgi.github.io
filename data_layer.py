@@ -18,6 +18,8 @@ import pandas as pd
 from io import BytesIO
 import zipfile
 import os
+import shutil
+
 
 # =========================
 # GLOBAL CONFIG
@@ -243,3 +245,20 @@ def create_full_backup():
 
     buffer.seek(0)
     return buffer
+
+
+
+def restore_full_backup(uploaded_file):
+    # Clean existing data
+    for f in ["pyq_topics.csv", "study_cards.csv"]:
+        if os.path.exists(f):
+            os.remove(f)
+
+    if os.path.exists("card_images"):
+        shutil.rmtree("card_images")
+
+    # Extract uploaded zip
+    with zipfile.ZipFile(uploaded_file, "r") as z:
+        z.extractall(".")
+
+    return True
