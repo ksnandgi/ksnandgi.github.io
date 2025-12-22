@@ -107,7 +107,7 @@ def render_revision_engine():
     # ---- Image-only mode ----
     image_only = st.toggle("Image-only revision", value=False)
 
-    if card.image_paths:
+    if isinstance(card.image_paths, str) and card.image_paths.strip():
         for p in card.image_paths.split(";"):
             st.image(p)
 
