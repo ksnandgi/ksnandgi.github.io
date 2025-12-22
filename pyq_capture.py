@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from data_layer import load_pyqs, save_pyqs, safe_next_id, new_pyq_row
+import data_layer
 
 SUBJECTS = [
     "Medicine", "Surgery", "ObG", "Pediatrics",
@@ -34,7 +34,7 @@ def render_pyq_capture():
             st.error("Topic is required.")
             return
 
-        pyqs = load_pyqs()
+        pyqs = data_layer.load_pyqs()
 
         row = new_pyq_row(
             topic=topic.strip(),
