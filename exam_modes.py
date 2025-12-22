@@ -159,6 +159,10 @@ def render_exam_day_toggle():
 # MAIN ENTRY
 # =========================
 
+if st.session_state.app_mode != "Exam":
+    st.info("Switch to ⚡ Exam Mode to access Rapid Review and Image Sprint.")
+    return
+
 def render_exam_modes():
     render_exam_day_toggle()
 
