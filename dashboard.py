@@ -84,7 +84,6 @@ def generate_daily_plan(pyqs: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
 
 
 def render_dashboard():
-    st.subheader("🏠 Dashboard")
 
     mode = st.session_state.app_mode
 
