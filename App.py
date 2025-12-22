@@ -104,32 +104,11 @@ if st.sidebar.button("💾 Backup Data"):
 if st.sidebar.button("⬆️ Restore Data"):
     st.session_state.current_view = "restore"
 
-view = st.session_state.current_view
+if st.session_state.app_mode == "Study":
+    render_revision_engine()
 
-if view == "dashboard":
+elif st.session_state.app_mode == "Exam":
+    render_exam_modes()
+
+else:
     render_dashboard()
-
-elif view == "add_pyq":
-    render_pyq_capture()
-
-elif view == "study_cards":
-    render_study_cards()
-
-elif view == "revision":
-    render_revision_engine()
-
-elif view == "exam":
-    render_exam_modes()
-
-elif view == "backup":
-    render_backup_page()   # new page
-
-elif view == "restore":
-    render_restore_page()  # new page
-
-elif view == "image_sprint":
-    render_exam_modes()
-
-elif view == "revision_weak":
-    st.session_state.setdefault("revision_filter", "weak")
-    render_revision_engine()
