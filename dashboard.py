@@ -215,24 +215,12 @@ def render_dashboard():
 
         with col1:
             if st.button("⚡ Rapid Review", use_container_width=True):
-                st.session_state.current_view = "go_rapid_review"
+                st.session_state.current_view = "rapid_review"
                 st.rerun()
 
         with col2:
             if st.button("🖼️ Image Sprint", use_container_width=True):
-                st.session_state,current_view = "go_image_sprint"
+                st.session_state,current_view = "image_sprint"
                 st.rerun()
 
         st.markdown("---")
-
-        # Exam Day Mode guardrail
-        exam_day = st.toggle(
-            "🧠 Exam Day Mode",
-            value=st.session_state.get("exam_day_mode", False)
-        )
-        st.session_state.current_view = "exam"
-
-        if exam_day:
-            st.warning("Exam Day Mode is ON. Editing and capture are disabled.")
-
-        return
