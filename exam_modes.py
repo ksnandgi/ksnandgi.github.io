@@ -55,7 +55,7 @@ def render_rapid_review():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
-    # ---- EXAM CANDIDATES (IMPORTANT FIX) ----
+    # ---- Exam candidates ----
     candidates = pyqs[
         (pyqs.revision_count == 0) |
         (pyqs.fail_count > 0) |
@@ -76,7 +76,7 @@ def render_rapid_review():
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
-    # ---- STUDY CARD (OPTIONAL) ----
+    # ---- Optional study card ----
     card_df = cards[cards.topic_id == row.id]
 
     if not card_df.empty:
@@ -95,25 +95,24 @@ def render_rapid_review():
     col1, col2 = st.columns(2)
 
     with col1:
-    if st.button("✅ Revised"):
-        row.revision_count += 1
-        row.fail_count = max(row.fail_count - 1, 0)
-        row.last_revised = date.today()
+        if st.button("✅ Revised"):
+            # Exam Mode: no spaced repetition update
+            pyqs.loc[pyqs.id == row.id, "revision_count"] += 1
+            pyqs.loc[pyqs.id == row.id, "fail_count"] = (
+                pyqs.loc[pyqs.id == row.id, "fail_count"].clip(lower=0)
+            )
+            pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
-        # Exam Mode does NOT recompute spaced repetition
-        pyqs.loc[pyqs.id == row.id, :] = row
-        save_pyqs(pyqs)
-        st.rerun()
+            save_pyqs(pyqs)
+            st.rerun()
 
     with col2:
-    if st.button("❌ Weak"):
-        row.fail_count += 1
-        row.last_revised = date.today()
+        if st.button("❌ Weak"):
+            pyqs.loc[pyqs.id == row.id, "fail_count"] += 1
+            pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
-        pyqs.loc[pyqs.id == row.id, :] = row
-        save_pyqs(pyqs)
-        st.rerun()
-
+            save_pyqs(pyqs)
+            st.rerun()
 
 # =========================
 # IMAGE SPRINT MODE
