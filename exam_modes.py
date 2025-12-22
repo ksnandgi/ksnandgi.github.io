@@ -106,14 +106,13 @@ def render_rapid_review():
         st.rerun()
 
     with col2:
-        if st.button("❌ Weak"):
-            row.fail_count += 1
-            row.last_revised = date.today()
-            row.next_revision_date = compute_next_revision(row)
+    if st.button("❌ Weak"):
+        row.fail_count += 1
+        row.last_revised = date.today()
 
-            pyqs.loc[pyqs.id == row.id, :] = row
-            save_pyqs(pyqs)
-            st.rerun()
+        pyqs.loc[pyqs.id == row.id, :] = row
+        save_pyqs(pyqs)
+        st.rerun()
 
 
 # =========================
