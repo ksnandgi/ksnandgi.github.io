@@ -98,6 +98,8 @@ def render_study_cards():
     topic_id = topic_map[selected_label]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
 
+    card_df = cards[cards.topic_id == topic_id]
+
     st.caption(f"Subject: {topic_row.subject}")
     st.markdown("---")
 
