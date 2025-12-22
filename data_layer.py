@@ -282,7 +282,7 @@ def upsert_card(
 
     else:
         new_row = {
-            "card_id": safe_next_id(cards, "card_id"),
+            "card_id": safe_next_id(cards),
             "topic_id": topic_id,
             "card_title": card_title,
             "bullets": bullets,
