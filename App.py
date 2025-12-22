@@ -39,7 +39,7 @@ def render_backup_page():
     st.subheader("💾 Backup Data")
     st.info("Download a full backup of your data. Keep this file safe.")
 
-    buffer = create_full_backup()  # BytesIO object
+    buffer = data_layer.create_full_backup()
 
     st.download_button(
         label="⬇️ Download Full Backup",
