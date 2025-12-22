@@ -22,7 +22,6 @@ import data_layer
 # =========================
 
 def init_exam_state():
-    st.session_state.setdefault("exam_day_mode", False)
     st.session_state.setdefault("image_seen", set())
     st.session_state.setdefault("sprint_count_today", 0)
     st.session_state.setdefault("last_sprint_date", None)
@@ -178,20 +177,6 @@ def render_image_sprint():
 
 
 # =========================
-# EXAM DAY MODE
-# =========================
-
-def render_exam_day_toggle():
-    st.session_state.exam_day_mode = st.toggle(
-        "🧠 Exam Day Mode",
-        value=st.session_state.get("exam_day_mode", False)
-    )
-
-    if st.session_state.exam_day_mode:
-        st.warning("Exam Day Mode is ON. Editing & capture are disabled.")
-
-
-# =========================
 # MAIN ENTRY
 # =========================
 
@@ -200,7 +185,6 @@ def render_exam_modes():
         st.info("Switch to ⚡ Exam Mode to access exam features.")
         return
 
-    render_exam_day_toggle()
 
     mode = st.radio(
         "Select Exam Mode",
