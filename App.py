@@ -33,17 +33,23 @@ def render_mode_bar():
             st.session_state.current_view = "dashboard"
             st.rerun()
 
+
 def render_backup_page():
     st.subheader("💾 Backup Data")
-
     st.info("Download a full backup of your data. Keep this file safe.")
 
-    if st.button("⬇️ Download Full Backup"):
-        # call your existing backup logic here
-        st.success("Backup prepared. Download should start.")
+    buffer = create_full_backup()  # BytesIO object
 
-    if st.button("⬅ Back to Dashboard"):
+    st.download_button(
+        label="⬇️ Download Full Backup",
+        data=buffer,
+        file_name="neet_pg_backup.zip",
+        mime="application/zip"
+    )
+
+    if st.button("← Back to Dashboard"):
         st.session_state.current_view = "dashboard"
+        st.rerun()
 
 
 def render_restore_page():
