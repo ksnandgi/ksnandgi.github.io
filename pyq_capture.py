@@ -45,7 +45,7 @@ def render_pyq_capture():
 
         row["id"] = data_layer.safe_next_id(pyqs["id"])
         pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
-        save_pyqs(pyqs)
+        data_layer.save_pyqs(pyqs)
 
         st.success("✅ PYQ added successfully.")
 
