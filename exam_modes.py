@@ -95,15 +95,15 @@ def render_rapid_review():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("✅ Revised"):
-            row.revision_count += 1
-            row.fail_count = max(row.fail_count - 1, 0)
-            row.last_revised = date.today()
-            row.next_revision_date = compute_next_revision(row)
+    if st.button("✅ Revised"):
+        row.revision_count += 1
+        row.fail_count = max(row.fail_count - 1, 0)
+        row.last_revised = date.today()
 
-            pyqs.loc[pyqs.id == row.id, :] = row
-            save_pyqs(pyqs)
-            st.rerun()
+        # Exam Mode does NOT recompute spaced repetition
+        pyqs.loc[pyqs.id == row.id, :] = row
+        save_pyqs(pyqs)
+        st.rerun()
 
     with col2:
         if st.button("❌ Weak"):
