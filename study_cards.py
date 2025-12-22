@@ -67,22 +67,36 @@ def render_study_cards():
         return
 
     # =========================
-    # SECTION 1 — CONTEXT
+    # SECTION 1 — SEARCH & CONTEXT
     # =========================
-    pyqs = pyqs.copy()
-    pyqs["label"] = pyqs["topic"] + " (" + pyqs["subject"] + ")"
 
-    topic_map = dict(zip(pyqs["label"], pyqs["id"]))
+    st.markdown("### 🔍 Find Topic")
+
+    query = st.text_input(
+        "Search topic (type 2–3 letters)",
+        placeholder="e.g. pneumo, anemia, stroke"
+    )
+
+    filtered = pyqs[
+        pyqs["topic"].str.contains(query, case=False, na=False)
+    ] if query else pyqs
+
+    if filtered.empty:
+        st.info("No matching topics found.")
+        return
+
+    filtered = filtered.copy()
+    filtered["label"] = filtered["topic"] + " (" + filtered["subject"] + ")"
+
+    topic_map = dict(zip(filtered["label"], filtered["id"]))
 
     selected_label = st.selectbox(
-        "📘 Select Topic",
+        "Select Topic",
         list(topic_map.keys())
     )
 
     topic_id = topic_map[selected_label]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
-
-    card_df = cards[cards.topic_id == topic_id]
 
     st.caption(f"Subject: {topic_row.subject}")
     st.markdown("---")
