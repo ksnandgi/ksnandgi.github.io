@@ -36,7 +36,7 @@ def render_pyq_capture():
 
         pyqs = data_layer.load_pyqs()
 
-        row = new_pyq_row(
+        row = data_layer.new_pyq_row(
             topic=topic.strip(),
             subject=subject,
             trigger_line=trigger.strip(),
