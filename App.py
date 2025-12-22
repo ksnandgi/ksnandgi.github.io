@@ -87,7 +87,7 @@ st.set_page_config(
 # =========================
 # MAIN LAYOUT
 # =========================
-st.title("📘 NEET PG Study System")
+st.markdown("### 📘 NEET PG Study System")
 
 if (
     st.session_state.current_view not in ["backup", "restore"]
