@@ -96,7 +96,7 @@ def render_study_cards():
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
 
     # ---- Existing card ----
-    if card_exists_for_topic(cards, topic_id):
+    if data_layer.card_exists_for_topic(cards, topic_id):
         st.success("Study Card already exists for this topic.")
         st.warning("If something is wrong, you can delete and recreate the Study Card.")
 
