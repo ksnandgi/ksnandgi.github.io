@@ -166,9 +166,9 @@ def render_dashboard():
         revised = pyqs.revision_count.sum()
         weak_count = (pyqs.fail_count > 0).sum()
 
-        st.caption(f"Topics revised so far: {revised}")
+        st.caption(f"Topics revised (total): {revised}")
         if weak_count:
-            st.caption(f"Weak topics pending: {weak_count}")
+            st.caption(f"Topics marked weak (total): {weak_count}")
 
         return
 
