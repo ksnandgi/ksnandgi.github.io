@@ -94,7 +94,7 @@ def render_dashboard():
     if mode == "Study":
         st.markdown("## 📘 Today’s Revision")
 
-        pyqs = load_pyqs()
+        pyqs = data.layer.load_pyqs()
         cards = load_cards()
 
         # Only topics with study cards
@@ -184,7 +184,7 @@ def render_dashboard():
         # -------------------------
         st.markdown("---")
 
-        pyqs = load_pyqs()
+        pyqs = data.layer.load_pyqs()
         cards = load_cards()
 
         total_pyqs = len(pyqs)
