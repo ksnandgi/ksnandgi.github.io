@@ -46,8 +46,7 @@ def render_rapid_review():
     pyqs = load_pyqs()
     cards = load_cards()
 
-    # Only topics WITH cards
-    pyqs = pyqs[pyqs.id.isin(cards.topic_id)]
+    # Allow PYQs even without study cards (Exam Mode)
 
     if pyqs.empty:
         st.info("No consolidated topics available.")
