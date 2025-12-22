@@ -106,3 +106,9 @@ if st.sidebar.button("⬆️ Restore Data"):
 
 if st.session_state.app_mode == "Study":
     render_dashboard()
+
+elif st.session_state.app_mode == "Build":
+    render_dashboard()
+
+else:
+    render_dashboard()
