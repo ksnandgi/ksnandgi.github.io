@@ -141,7 +141,9 @@ def render_revision_engine():
         if st.button("❌ Weak"):
             row.fail_count += 1
             row.last_revised = date.today()
-            row.next_revision_date = compute_next_revision(row)
+            row.next_revision_date = compute_next_revision(
+                int(row.revision_count)
+            )
 
             pyqs.loc[pyqs.id == row.id, "fail_count"] = int(row.fail_count)
             pyqs.loc[pyqs.id == row.id, "last_revised"] = row.last_revised
