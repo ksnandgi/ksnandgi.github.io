@@ -119,18 +119,18 @@ elif view == "study_cards":
 elif view == "revision":
     render_revision_engine()
 
-elif view == "exam":
-    render_exam_modes()
-
-elif view == "backup":
-    render_backup_page()   # new page
-
-elif view == "restore":
-    render_restore_page()  # new page
-
-elif view == "image_sprint":
-    render_exam_modes()
-
 elif view == "revision_weak":
     st.session_state.setdefault("revision_filter", "weak")
     render_revision_engine()
+
+elif view in ["rapid_review", "image_sprint"]:
+    render_exam_modes()
+
+elif view == "backup":
+    render_backup_page()
+
+elif view == "restore":
+    render_restore_page()
+
+else:
+    render_dashboard()
