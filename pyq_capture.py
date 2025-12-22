@@ -12,40 +12,19 @@ SUBJECTS = [
 
 
 def render_pyq_capture():
-    # -------- Mode Guard --------
     if st.session_state.app_mode != "Build":
         st.info("Switch to 🛠️ Build Mode to add PYQs.")
         return
 
-    # -------- FORM RESET (CRITICAL FIX) --------
-    if st.session_state.pop("_reset_pyq_form", False):
-        for k in [
-            "pyq_topic",
-            "pyq_subject",
-            "pyq_trigger",
-            "pyq_years"
-        ]:
-            st.session_state.pop(k, None)
-
     st.subheader("➕ Add PYQ")
 
-    with st.form("pyq_form"):
-        topic = st.text_input("Topic", key="pyq_topic")
-
-        subject = st.selectbox(
-            "Subject",
-            SUBJECTS,
-            key="pyq_subject"
-        )
-
-        trigger = st.text_input(
-            "Trigger line (one-liner)",
-            key="pyq_trigger"
-        )
-
+    with st.form("pyq_form", clear_on_submit=True):
+        topic = st.text_input("Topic")
+        subject = st.selectbox("Subject", SUBJECTS)
+        trigger = st.text_input("Trigger line (one-liner)")
         years = st.text_input(
             "PYQ Years (comma separated)",
-            key="pyq_years"
+            placeholder="2019, 2021"
         )
 
         submitted = st.form_submit_button("Save PYQ")
@@ -73,9 +52,7 @@ def render_pyq_capture():
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("➕ Add Another PYQ"):
-                st.session_state["_reset_pyq_form"] = True
-                st.rerun()
+            st.info("Form cleared. You can add another PYQ.")
 
         with col2:
             if st.button("🏠 Back to Dashboard"):
