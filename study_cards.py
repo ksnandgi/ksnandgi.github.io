@@ -85,6 +85,10 @@ def delete_study_card(cards_df: pd.DataFrame, topic_id: int) -> pd.DataFrame:
 # MAIN UI
 # =========================
 
+if st.session_state.app_mode != "Build":
+    st.info("Switch to 🛠️ Build Mode to create or manage Study Cards.")
+    return
+
 def render_study_cards():
     st.subheader("🗂️ Study Cards")
 
