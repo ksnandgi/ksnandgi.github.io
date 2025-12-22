@@ -172,3 +172,9 @@ def render_exam_modes():
         render_rapid_review()
     else:
         render_image_sprint()
+
+def require_mode(allowed_modes, message):
+    if st.session_state.app_mode not in allowed_modes:
+        st.info(message)
+        return False
+    return True
