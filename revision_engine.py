@@ -19,13 +19,7 @@ import pandas as pd
 import time
 from datetime import date
 
-from data_layer import (
-    load_pyqs,
-    load_cards,
-    save_pyqs,
-    compute_next_revision,
-    is_due
-)
+import data_layer
 
 # =========================
 # SESSION STATE INIT
@@ -64,7 +58,7 @@ def render_revision_engine():
 
     init_revision_session()
 
-    pyqs = load_pyqs()
+    pyqs = data.layer.load_pyqs()
     cards = load_cards()
 
     # Only topics with study cards
