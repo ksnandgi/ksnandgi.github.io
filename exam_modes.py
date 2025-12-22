@@ -90,4 +90,117 @@ def render_rapid_review():
             st.write(line)
     else:
         st.info("No study card yet for this topic.")
-        st.markdown(f"**Trigger line:** {
+        st.markdown(f"**Trigger line:** {row.trigger_line}")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("✅ Revised"):
+            row.revision_count += 1
+            row.fail_count = max(row.fail_count - 1, 0)
+            row.last_revised = date.today()
+            row.next_revision_date = compute_next_revision(row)
+
+            pyqs.loc[pyqs.id == row.id, :] = row
+            save_pyqs(pyqs)
+            st.rerun()
+
+    with col2:
+        if st.button("❌ Weak"):
+            row.fail_count += 1
+            row.last_revised = date.today()
+            row.next_revision_date = compute_next_revision(row)
+
+            pyqs.loc[pyqs.id == row.id, :] = row
+            save_pyqs(pyqs)
+            st.rerun()
+
+
+# =========================
+# IMAGE SPRINT MODE
+# =========================
+
+def render_image_sprint():
+    st.subheader("🖼️ Image Sprint")
+
+    init_exam_state()
+
+    cards = load_cards()
+    pyqs = load_pyqs()
+
+    if cards.empty:
+        st.info("No study cards with images available.")
+        return
+
+    subjects = sorted(pyqs.subject.unique().tolist())
+    subject = st.selectbox("Subject (mandatory)", subjects)
+
+    topic_ids = pyqs[pyqs.subject == subject].id
+    cards = cards[cards.topic_id.isin(topic_ids)]
+
+    if cards.empty:
+        st.info("No image cards for this subject.")
+        return
+
+    speed = st.selectbox("Sprint speed", ["Slow", "Normal", "Fast"])
+    delay = {"Slow": 4, "Normal": 2, "Fast": 1}[speed]
+
+    auto = st.toggle("Auto-advance", value=True)
+
+    for _, card in cards.iterrows():
+        topic = pyqs[pyqs.id == card.topic_id].topic.values[0]
+        st.markdown(f"### {topic}")
+
+        if card.image_paths:
+            for p in card.image_paths.split(";"):
+                st.image(p)
+
+        if auto:
+            time.sleep(delay)
+
+    today = date.today()
+    if st.session_state.last_sprint_date != today:
+        st.session_state.sprint_count_today = 0
+        st.session_state.last_sprint_date = today
+
+    st.session_state.sprint_count_today += 1
+
+    if st.session_state.sprint_count_today >= 2:
+        st.info("You’ve completed a full image sprint today.")
+
+
+# =========================
+# EXAM DAY MODE
+# =========================
+
+def render_exam_day_toggle():
+    st.session_state.exam_day_mode = st.toggle(
+        "🧠 Exam Day Mode",
+        value=st.session_state.get("exam_day_mode", False)
+    )
+
+    if st.session_state.exam_day_mode:
+        st.warning("Exam Day Mode is ON. Editing & capture are disabled.")
+
+
+# =========================
+# MAIN ENTRY
+# =========================
+
+def render_exam_modes():
+    if st.session_state.app_mode != "Exam":
+        st.info("Switch to ⚡ Exam Mode to access exam features.")
+        return
+
+    render_exam_day_toggle()
+
+    mode = st.radio(
+        "Select Exam Mode",
+        ["Rapid Review", "Image Sprint"],
+        horizontal=True
+    )
+
+    if mode == "Rapid Review":
+        render_rapid_review()
+    else:
+        render_image_sprint()
