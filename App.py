@@ -104,14 +104,6 @@ if st.sidebar.button("💾 Backup Data"):
 if st.sidebar.button("⬆️ Restore Data"):
     st.session_state.current_view = "restore"
 
-if st.session_state.app_mode == "Study":
-    render_dashboard()
-
-elif st.session_state.app_mode == "Build":
-    render_dashboard()
-
-else:
-    render_dashboard()
 
 view = st.session_state.current_view
 
