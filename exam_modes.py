@@ -77,10 +77,10 @@ def render_rapid_review():
     )
 
     row = candidates.iloc[0]
-    card = cards[cards.topic_id == row.id].iloc[0]
+    card_df = cards[cards.topic_id == row.id]
 
-    st.markdown(f"### {row.topic}")
-    st.caption(row.subject)
+if not card_df.empty:
+    card = card_df.iloc[0]
 
     if card.image_paths:
         for p in card.image_paths.split(";"):
@@ -88,6 +88,9 @@ def render_rapid_review():
 
     for line in card.bullets.splitlines():
         st.write(line)
+else:
+    st.info("No study card yet for this topic.")
+    st.markdown(f"**Trigger:** {row.trigger_line}")
 
     col1, col2 = st.columns(2)
 
