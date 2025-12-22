@@ -60,40 +60,30 @@ if st.sidebar.button("⬆️ Restore Data"):
     st.session_state["_restore"] = True
 
 # =========================
-# TAB ROUTING
+# ROUTING (DASHBOARD-DRIVEN)
 # =========================
 
-# Force revision if triggered from dashboard
-force_revision = st.session_state.pop("_force_revision", False)
-go_add_pyq = st.session_state.pop("_go_add_pyq", False)
-go_study_cards = st.session_state.pop("_go_study_cards", False)
-go_rapid_review = st.session_state.pop("_go_rapid_review", False)
-go_image_sprint = st.session_state.pop("_go_image_sprint", False)
+if st.session_state.pop("_backup", False):
+    st.info("Backup triggered (logic handled elsewhere).")
 
+elif st.session_state.pop("_restore", False):
+    st.info("Restore triggered (logic handled elsewhere).")
 
-if force_revision:
+elif st.session_state.pop("_force_revision", False):
     render_revision_engine()
 
-elif go_add_pyq:
+elif st.session_state.pop("_go_add_pyq", False):
     render_pyq_capture()
 
-elif go_study_cards:
+elif st.session_state.pop("_go_study_cards", False):
     render_study_cards()
 
-elif go_rapid_review or go_image_sprint:
+elif st.session_state.pop("_go_rapid_review", False):
     render_exam_modes()
 
-elif active_tab == "Dashboard":
+elif st.session_state.pop("_go_image_sprint", False):
+    render_exam_modes()
+
+else:
+    # Default landing
     render_dashboard()
-
-elif active_tab == "Add PYQ":
-    render_pyq_capture()
-
-elif active_tab == "Study Cards":
-    render_study_cards()
-
-elif active_tab == "Revision":
-    render_revision_engine()
-
-elif active_tab == "Exam Modes":
-    render_exam_modes()
