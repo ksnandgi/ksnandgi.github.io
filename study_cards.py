@@ -138,7 +138,7 @@ def render_study_cards():
                 st.error("Minimum 3 bullets required.")
                 return
 
-            image_paths = save_uploaded_images(images, topic_id) if images else []
+            image_paths = data_layer.save_uploaded_images(images, topic_id) if images else []
 
             row = data_layer.new_card_row(
                 topic_id=topic_id,
