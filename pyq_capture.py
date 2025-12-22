@@ -80,6 +80,10 @@ def voice_to_text() -> str:
 # MAIN UI
 # =========================
 
+if st.session_state.app_mode != "Build":
+    st.info("Switch to 🛠️ Build Mode to add PYQ topics.")
+    return
+
 def render_pyq_capture():
     st.subheader("➕ PYQ Capture")
 
