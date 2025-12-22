@@ -171,3 +171,10 @@ def render_study_cards():
             st.success("Study Card saved successfully.")
             st.session_state.pop("draft_bullets", None)
             st.rerun()
+
+def require_mode(allowed_modes, message):
+    if st.session_state.app_mode not in allowed_modes:
+        st.info(message)
+        return False
+    return True
+
