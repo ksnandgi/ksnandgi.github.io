@@ -161,3 +161,6 @@ def render_revision_engine():
         st.session_state.last_revision_date = today
 
     st.caption(f"Revision streak: {st.session_state.revision_streak} days")
+
+    if st.session_state.get("revision_filter") == "weak":
+    st.info("Showing weak topics first")
