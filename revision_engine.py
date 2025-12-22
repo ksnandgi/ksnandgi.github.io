@@ -79,6 +79,10 @@ def compute_daily_target(pyqs: pd.DataFrame, cap: int = 10) -> int:
 # MAIN UI
 # =========================
 
+if st.session_state.app_mode != "Study":
+    st.info("Switch to 📘 Study Mode to start revision.")
+    return
+
 def render_revision_engine():
     st.subheader("🔁 Revision")
 
