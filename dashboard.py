@@ -240,3 +240,10 @@ def render_dashboard():
         with zipfile.ZipFile(img_zip_file) as z:
             z.extractall("card_images")
         st.success("Images restored. Reload the app.")
+
+def require_mode(allowed_modes, message):
+    if st.session_state.app_mode not in allowed_modes:
+        st.info(message)
+        return False
+    return True
+
