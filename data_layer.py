@@ -262,3 +262,42 @@ def restore_full_backup(uploaded_file):
         z.extractall(".")
 
     return True
+
+
+
+def upsert_card(
+    topic_id: int,
+    card_title: str,
+    bullets: str,
+    image_paths: str = ""
+):
+    cards = load_cards()
+
+    # If card exists → update
+    if not cards[cards.topic_id == topic_id].empty:
+        cards.loc[cards.topic_id == topic_id, "card_title"] = card_title
+        cards.loc[cards.topic_id == topic_id, "bullets"] = bullets
+        cards.loc[cards.topic_id == topic_id, "image_paths"] = image_paths
+
+    # Else → create new
+    else:
+        new_row = {
+            "card_id": safe_next_id(cards, "card_id"),
+            "topic_id": topic_id,
+            "card_title": card_title,
+            "bullets": bullets,
+            "image_paths": image_paths,
+            "created_at": date.today()
+        }
+        cards = pd.concat([cards, pd.DataFrame([new_row])], ignore_index=True)
+
+    save_cards(cards)
+
+
+
+def delete_card(topic_id: int):
+    cards = load_cards()
+
+    cards = cards[cards.topic_id != topic_id]
+
+    save_cards(cards)
