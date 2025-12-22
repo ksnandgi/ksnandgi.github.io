@@ -27,7 +27,7 @@ def init_exam_state():
     st.session_state.setdefault("image_seen", set())
     st.session_state.setdefault("sprint_count_today", 0)
     st.session_state.setdefault("last_sprint_date", None)
-    st.session_state.setdefault("exam_seen", set())  # 🔑 FIX
+    st.session_state.setdefault("exam_seen", set())
 
 
 # =========================
@@ -39,8 +39,8 @@ def render_rapid_review():
 
     init_exam_state()
 
-    pyqs = load_pyqs()
-    cards = load_cards()
+    pyqs = data_layer.load_pyqs()
+    cards = data_layer.load_cards()
 
     if pyqs.empty:
         st.info("No PYQs available.")
@@ -52,12 +52,12 @@ def render_rapid_review():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
-    # ---- Exam candidates (FIXED) ----
+    # ---- Exam candidates ----
     candidates = pyqs[
         (
             (pyqs.revision_count == 0) |
             (pyqs.fail_count > 0) |
-            (is_due(pyqs))
+            (data_layer.is_due(pyqs))
         )
         & (~pyqs.id.isin(st.session_state.exam_seen))
     ]
@@ -102,11 +102,8 @@ def render_rapid_review():
             )
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
-            save_pyqs(pyqs)
-
-            # 🔑 Suppress for this session
+            data_layer.save_pyqs(pyqs)
             st.session_state.exam_seen.add(row.id)
-
             st.rerun()
 
     with col2:
@@ -114,11 +111,8 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "fail_count"] += 1
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
-            save_pyqs(pyqs)
-
-            # 🔑 Suppress for this session
+            data_layer.save_pyqs(pyqs)
             st.session_state.exam_seen.add(row.id)
-
             st.rerun()
 
 
@@ -131,8 +125,8 @@ def render_image_sprint():
 
     init_exam_state()
 
-    cards = load_cards()
-    pyqs = load_pyqs()
+    cards = data_layer.load_cards()
+    pyqs = data_layer.load_pyqs()
 
     if cards.empty:
         st.info("No study cards with images available.")
@@ -163,3 +157,50 @@ def render_image_sprint():
 
         if auto:
             time.sleep(delay)
+
+    today = date.today()
+    if st.session_state.last_sprint_date != today:
+        st.session_state.sprint_count_today = 0
+        st.session_state.last_sprint_date = today
+
+    st.session_state.sprint_count_today += 1
+
+    if st.session_state.sprint_count_today >= 2:
+        st.info("You’ve completed a full image sprint today.")
+
+
+# =========================
+# EXAM DAY MODE
+# =========================
+
+def render_exam_day_toggle():
+    st.session_state.exam_day_mode = st.toggle(
+        "🧠 Exam Day Mode",
+        value=st.session_state.get("exam_day_mode", False)
+    )
+
+    if st.session_state.exam_day_mode:
+        st.warning("Exam Day Mode is ON. Editing & capture are disabled.")
+
+
+# =========================
+# MAIN ENTRY
+# =========================
+
+def render_exam_modes():
+    if st.session_state.app_mode != "Exam":
+        st.info("Switch to ⚡ Exam Mode to access exam features.")
+        return
+
+    render_exam_day_toggle()
+
+    mode = st.radio(
+        "Select Exam Mode",
+        ["Rapid Review", "Image Sprint"],
+        horizontal=True
+    )
+
+    if mode == "Rapid Review":
+        render_rapid_review()
+    else:
+        render_image_sprint()
