@@ -27,7 +27,7 @@ def init_exam_state():
     st.session_state.setdefault("sprint_count_today", 0)
     st.session_state.setdefault("last_sprint_date", None)
     st.session_state.setdefault("exam_seen", set())
-
+    st.session_state.setdefault("sprint_index", 0)
 
 # =========================
 # RAPID REVIEW MODE
@@ -145,26 +145,36 @@ def render_image_sprint():
 
     auto = st.toggle("Auto-advance", value=True)
 
-    for _, card in cards.iterrows():
-        topic = pyqs[pyqs.id == card.topic_id].topic.values[0]
-        st.markdown(f"### {topic}")
+    # Reset sprint if subject changes
+    if st.session_state.get("last_sprint_subject") != subject:
+        st.session_state.sprint_index = 0
+        st.session_state.last_sprint_subject = subject
 
-        if isinstance(card.image_paths, str) and card.image_paths.strip():
-            for p in card.image_paths.split(";"):
-                st.image(p)
+    if st.session_state.sprint_index >= len(cards):
+        st.success("Sprint completed 🎉")
+        return
 
+    card = cards.iloc[st.session_state.sprint_index]
+    topic = pyqs[pyqs.id == card.topic_id].topic.values[0]
+
+    st.markdown(f"### {topic}")
+
+    if isinstance(card.image_paths, str) and card.image_paths.strip():
+        for p in card.image_paths.split(";"):
+            st.image(p)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Next ▶️"):
+            st.session_state.sprint_index += 1
+            st.rerun()
+
+    with col2:
         if auto:
             time.sleep(delay)
-
-    today = date.today()
-    if st.session_state.last_sprint_date != today:
-        st.session_state.sprint_count_today = 0
-        st.session_state.last_sprint_date = today
-
-    st.session_state.sprint_count_today += 1
-
-    if st.session_state.sprint_count_today >= 2:
-        st.info("You’ve completed a full image sprint today.")
+            st.session_state.sprint_index += 1
+            st.rerun()
 
 
 # =========================
