@@ -54,36 +54,30 @@ st.markdown("---")
 st.sidebar.title("🗄️ Backup & Restore")
 
 if st.sidebar.button("💾 Backup Data"):
-    st.session_state["_backup"] = True
+    st.session_state.current_view = "backup"
 
 if st.sidebar.button("⬆️ Restore Data"):
-    st.session_state["_restore"] = True
+    st.session_state.current.view = "restore"
 
-# =========================
-# ROUTING (DASHBOARD-DRIVEN)
-# =========================
+view = st.session_state.current_view
 
-if st.session_state.pop("_backup", False):
-    st.info("Backup triggered (logic handled elsewhere).")
+if view == "dashboard":
+    render_dashboard()
 
-elif st.session_state.pop("_restore", False):
-    st.info("Restore triggered (logic handled elsewhere).")
-
-elif st.session_state.pop("_force_revision", False):
-    render_revision_engine()
-
-elif st.session_state.pop("_go_add_pyq", False):
+elif view == "add_pyq":
     render_pyq_capture()
 
-elif st.session_state.pop("_go_study_cards", False):
+elif view == "study_cards":
     render_study_cards()
 
-elif st.session_state.pop("_go_rapid_review", False):
+elif view == "revision":
+    render_revision_engine()
+
+elif view == "exam":
     render_exam_modes()
 
-elif st.session_state.pop("_go_image_sprint", False):
-    render_exam_modes()
+elif view == "backup":
+    render_backup_page()   # new page
 
-else:
-    # Default landing
-    render_dashboard()
+elif view == "restore":
+    render_restore_page()  # new page
