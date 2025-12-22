@@ -129,7 +129,7 @@ def render_dashboard():
             st.markdown("")
 
             if st.button("▶️ Start Revision", use_container_width=True):
-                st.session_state["_force_revision"] = True
+                st.session_state.current_view = "revision"
                 st.rerun()
 
         # -------------------------
@@ -171,12 +171,12 @@ def render_dashboard():
 
         with col1:
             if st.button("➕ Add PYQ", use_container_width=True):
-                st.session_state["_go_add_pyq"] = True
+                st.session_state.current_view = "add_pyq"
                 st.rerun()
 
         with col2:
             if st.button("🗂️ Create Study Card", use_container_width=True):
-                st.session_state["_go_study_cards"] = True
+                st.session_state.current_view = "study_cards"
                 st.rerun()
 
         # -------------------------
@@ -209,12 +209,12 @@ def render_dashboard():
 
         with col1:
             if st.button("⚡ Rapid Review", use_container_width=True):
-                st.session_state["_go_rapid_review"] = True
+                st.session_state.current_view = "go_rapid_review"
                 st.rerun()
 
         with col2:
             if st.button("🖼️ Image Sprint", use_container_width=True):
-                st.session_state["_go_image_sprint"] = True
+                st.session_state,current_view = "go_image_sprint"
                 st.rerun()
 
         st.markdown("---")
@@ -224,7 +224,7 @@ def render_dashboard():
             "🧠 Exam Day Mode",
             value=st.session_state.get("exam_day_mode", False)
         )
-        st.session_state.exam_day_mode = exam_day
+        st.session_state.current_view = "exam"
 
         if exam_day:
             st.warning("Exam Day Mode is ON. Editing and capture are disabled.")
