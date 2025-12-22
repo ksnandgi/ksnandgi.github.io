@@ -141,10 +141,16 @@ def render_dashboard():
         col1, col2 = st.columns(2)
 
         with col1:
-            st.button("🖼️ Image Sprint", use_container_width=True)
+            st.button("🖼️ Image Sprint"):
+            st.session_state.app_mode = "Exam"
+            st.session_state.current_view = "image_sprint"
+            st.rerun()
 
         with col2:
-            st.button("📌 Weak Areas", use_container_width=True)
+            st.button("⚠️ Weak Areas"):
+            st.session_state.app_mode = "Study"
+            st.session_state.current_view = "revision_weak"
+            st.rerun()
 
         # -------------------------
         # Light Progress Overview
