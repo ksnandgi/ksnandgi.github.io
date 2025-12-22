@@ -33,10 +33,13 @@ def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
 def save_uploaded_images(files, topic_id: int) -> list[str]:
     paths = []
 
+    # 🔑 Ensure image directory exists (CRITICAL FOR STREAMLIT CLOUD)
+    data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
     for f in files:
         path = data_layer.IMAGE_DIR / f"{topic_id}_{f.name}"
         with open(path, "wb") as out:
-            out.write(f.read())
+            out.write(f.getbuffer())
         paths.append(str(path))
 
     return paths
