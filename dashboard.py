@@ -92,7 +92,7 @@ def render_dashboard():
     # 📘 STUDY MODE DASHBOARD
     # =========================
     if mode == "Study":
-        st.markdown("## 📘 Today’s Revision")
+        st.markdown("## 📘 Suggested topics to revise")
 
         pyqs = data_layer.load_pyqs()
         cards = data_layer.load_cards()
