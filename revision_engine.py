@@ -133,7 +133,7 @@ def render_revision_engine():
 
             data_layer.save_pyqs(pyqs)
 
-            st.session_state.session_seen.add(row.id)
+          # st.session_state.session_seen.add(row.id)
             st.session_state.revised_today += 1
             st.rerun()
 
@@ -151,7 +151,7 @@ def render_revision_engine():
 
             data_layer.save_pyqs(pyqs)
 
-            st.session_state.session_seen.add(row.id)
+          # st.session_state.session_seen.add(row.id)
             st.rerun()
 
     # ---- Quiet streak ----
