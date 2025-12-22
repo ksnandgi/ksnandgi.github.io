@@ -144,6 +144,7 @@ def render_dashboard():
             if st.button("🖼️ Image Sprint"):
                st.session_state.app_mode = "Exam"
                st.session_state.current_view = "image_sprint"
+               st.session_state.exam_seen = set()
                st.rerun()
 
         with col2:
@@ -216,11 +217,13 @@ def render_dashboard():
         with col1:
             if st.button("⚡ Rapid Review", use_container_width=True):
                 st.session_state.current_view = "rapid_review"
+                st.session_state.exam_seen = set()
                 st.rerun()
 
         with col2:
             if st.button("🖼️ Image Sprint", use_container_width=True):
                 st.session_state.current_view = "image_sprint"
+                st.session_state.exam_seen = set()
                 st.rerun()
 
         st.markdown("---")
