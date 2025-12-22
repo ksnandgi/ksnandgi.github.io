@@ -14,7 +14,6 @@ import time
 # =========================
 st.session_state.setdefault("app_mode", "Study")
 st.session_state.setdefault("current_view", "dashboard")
-st.session_state.setdefault("exam_day_mode", False)
 
 # =========================
 # GLOBAL MODE BAR
