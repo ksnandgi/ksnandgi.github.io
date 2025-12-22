@@ -67,7 +67,7 @@ def render_revision_engine():
     pyqs = load_pyqs()
     cards = load_cards()
 
-    # Only topics with cards
+    # Only topics with study cards
     pyqs = pyqs[pyqs.id.isin(cards.topic_id)]
 
     if pyqs.empty:
@@ -80,22 +80,31 @@ def render_revision_engine():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
-    pyqs = pyqs[is_due(pyqs)]
+    # =========================
+    # 🔑 FIX: REVISION CANDIDATES
+    # =========================
+    candidates = pyqs[
+        (pyqs.revision_count == 0) |     # never revised
+        (pyqs.fail_count > 0) |           # weak topics
+        (is_due(pyqs))                    # due by schedule
+    ]
 
-    if pyqs.empty:
-        st.success("No topics due for revision.")
+    if candidates.empty:
+        st.info("No topics available for revision yet.")
         return
 
-    pyqs = prioritize(pyqs)
+    candidates = prioritize(candidates)
 
     # Session-level suppression
-    pyqs = pyqs[~pyqs.id.isin(st.session_state.session_seen)]
+    candidates = candidates[
+        ~candidates.id.isin(st.session_state.session_seen)
+    ]
 
-    if pyqs.empty:
-        st.info("You have revised all due topics in this session.")
+    if candidates.empty:
+        st.info("You have revised all available topics in this session.")
         return
 
-    row = pyqs.iloc[0]
+    row = candidates.iloc[0]
     card = cards[cards.topic_id == row.id].iloc[0]
 
     st.markdown(f"### {row.topic}")
@@ -120,7 +129,10 @@ def render_revision_engine():
             row.fail_count = max(row.fail_count - 1, 0)
             row.last_revised = date.today()
             row.next_revision_date = compute_next_revision(row)
+
+            pyqs.loc[pyqs.id == row.id, :] = row
             save_pyqs(pyqs)
+
             st.session_state.session_seen.add(row.id)
             st.session_state.revised_today += 1
             st.rerun()
@@ -130,7 +142,10 @@ def render_revision_engine():
             row.fail_count += 1
             row.last_revised = date.today()
             row.next_revision_date = compute_next_revision(row)
+
+            pyqs.loc[pyqs.id == row.id, :] = row
             save_pyqs(pyqs)
+
             st.session_state.session_seen.add(row.id)
             st.rerun()
 
