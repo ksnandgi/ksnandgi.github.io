@@ -7,15 +7,7 @@ import pandas as pd
 import re
 import os
 
-from data_layer import (
-    load_pyqs,
-    load_cards,
-    save_cards,
-    safe_next_id,
-    new_card_row,
-    card_exists_for_topic,
-    IMAGE_DIR
-)
+import data_layer
 
 # =========================
 # AUTO CARD GENERATOR
@@ -84,8 +76,8 @@ def render_study_cards():
 
     st.subheader("🗂️ Study Cards")
 
-    pyqs = load_pyqs()
-    cards = load_cards()
+    pyqs = data_layer.load_pyqs()
+    cards = data_layer.load_cards()
 
     # ---- Empty PYQ guard ----
     if pyqs.empty:
