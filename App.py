@@ -66,17 +66,24 @@ active_tab = st.sidebar.radio("Navigate", tabs)
 # =========================
 # TAB ROUTING
 # =========================
-if active_tab == "Dashboard":
+
+# Force revision if triggered from dashboard
+force_revision = st.session_state.pop("_force_revision", False)
+
+if force_revision:
+    render_revision_engine()
+
+elif active_tab == "Dashboard":
     render_dashboard()
+
 elif active_tab == "Add PYQ":
     render_pyq_capture()
+
 elif active_tab == "Study Cards":
     render_study_cards()
-elif active_tab == "Revision":
-    if st.session_state.pop("_force_revision", False):
-        render_revision_engine()
-        return
 
+elif active_tab == "Revision":
     render_revision_engine()
+
 elif active_tab == "Exam Modes":
     render_exam_modes()
