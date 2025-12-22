@@ -122,7 +122,9 @@ def render_revision_engine():
             row.revision_count += 1
             row.fail_count = max(row.fail_count - 1, 0)
             row.last_revised = date.today()
-            row.next_revision_date = data_layer.compute_next_revision(row)
+            row.next_revision_date = data_layer.compute_next_revision(
+                int(row.revision_count)
+            )
 
             pyqs.loc[pyqs.id == row.id, :] = row
             data_layer.save_pyqs(pyqs)
