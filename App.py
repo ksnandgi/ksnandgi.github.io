@@ -8,9 +8,9 @@ from exam_modes import render_exam_modes
 from dashboard import render_dashboard
 
 # =========================
-# SESSION STATE
+# SESSION STATE INIT (GLOBAL)
 # =========================
-st.session_state.setdefault("exam_day_mode", False)
+st.session_state.setdefault("app_mode", "Study")
 st.session_state.setdefault("current_view", "dashboard")
 
 # =========================
