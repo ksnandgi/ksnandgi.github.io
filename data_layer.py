@@ -15,6 +15,9 @@ No UI logic. No Streamlit dependencies.
 from pathlib import Path
 from datetime import datetime, timedelta, date
 import pandas as pd
+from io import BytesIO
+import zipfile
+import os
 
 # =========================
 # GLOBAL CONFIG
@@ -217,3 +220,26 @@ def new_card_row(
         "created_at": pd.Timestamp.now(),
         "schema_version": DATA_VERSION
     }
+
+
+
+def create_full_backup():
+    buffer = BytesIO()
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+        # CSV files
+        if os.path.exists("pyq_topics.csv"):
+            z.write("pyq_topics.csv")
+
+        if os.path.exists("study_cards.csv"):
+            z.write("study_cards.csv")
+
+        # Images
+        if os.path.exists("card_images"):
+            for root, _, files in os.walk("card_images"):
+                for f in files:
+                    path = os.path.join(root, f)
+                    z.write(path)
+
+    buffer.seek(0)
+    return buffer
