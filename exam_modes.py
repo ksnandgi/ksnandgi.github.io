@@ -16,13 +16,7 @@ import pandas as pd
 import time
 from datetime import date
 
-from data_layer import (
-    load_pyqs,
-    load_cards,
-    save_pyqs,
-    compute_next_revision,
-    is_due
-)
+from data_layer import load_pyqs, load_cards, save_pyqs, is_due
 
 # =========================
 # SESSION STATE
@@ -33,6 +27,7 @@ def init_exam_state():
     st.session_state.setdefault("image_seen", set())
     st.session_state.setdefault("sprint_count_today", 0)
     st.session_state.setdefault("last_sprint_date", None)
+    st.session_state.setdefault("exam_seen", set())  # 🔑 FIX
 
 
 # =========================
@@ -41,6 +36,8 @@ def init_exam_state():
 
 def render_rapid_review():
     st.subheader("⚡ Rapid Review")
+
+    init_exam_state()
 
     pyqs = load_pyqs()
     cards = load_cards()
@@ -55,15 +52,18 @@ def render_rapid_review():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
-    # ---- Exam candidates ----
+    # ---- Exam candidates (FIXED) ----
     candidates = pyqs[
-        (pyqs.revision_count == 0) |
-        (pyqs.fail_count > 0) |
-        (is_due(pyqs))
+        (
+            (pyqs.revision_count == 0) |
+            (pyqs.fail_count > 0) |
+            (is_due(pyqs))
+        )
+        & (~pyqs.id.isin(st.session_state.exam_seen))
     ]
 
     if candidates.empty:
-        st.info("No topics available for rapid review.")
+        st.info("No more topics in this exam session.")
         return
 
     candidates = candidates.sort_values(
@@ -96,7 +96,6 @@ def render_rapid_review():
 
     with col1:
         if st.button("✅ Revised"):
-            # Exam Mode: no spaced repetition update
             pyqs.loc[pyqs.id == row.id, "revision_count"] += 1
             pyqs.loc[pyqs.id == row.id, "fail_count"] = (
                 pyqs.loc[pyqs.id == row.id, "fail_count"].clip(lower=0)
@@ -104,6 +103,10 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
             save_pyqs(pyqs)
+
+            # 🔑 Suppress for this session
+            st.session_state.exam_seen.add(row.id)
+
             st.rerun()
 
     with col2:
@@ -112,7 +115,12 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
             save_pyqs(pyqs)
+
+            # 🔑 Suppress for this session
+            st.session_state.exam_seen.add(row.id)
+
             st.rerun()
+
 
 # =========================
 # IMAGE SPRINT MODE
@@ -155,50 +163,3 @@ def render_image_sprint():
 
         if auto:
             time.sleep(delay)
-
-    today = date.today()
-    if st.session_state.last_sprint_date != today:
-        st.session_state.sprint_count_today = 0
-        st.session_state.last_sprint_date = today
-
-    st.session_state.sprint_count_today += 1
-
-    if st.session_state.sprint_count_today >= 2:
-        st.info("You’ve completed a full image sprint today.")
-
-
-# =========================
-# EXAM DAY MODE
-# =========================
-
-def render_exam_day_toggle():
-    st.session_state.exam_day_mode = st.toggle(
-        "🧠 Exam Day Mode",
-        value=st.session_state.get("exam_day_mode", False)
-    )
-
-    if st.session_state.exam_day_mode:
-        st.warning("Exam Day Mode is ON. Editing & capture are disabled.")
-
-
-# =========================
-# MAIN ENTRY
-# =========================
-
-def render_exam_modes():
-    if st.session_state.app_mode != "Exam":
-        st.info("Switch to ⚡ Exam Mode to access exam features.")
-        return
-
-    render_exam_day_toggle()
-
-    mode = st.radio(
-        "Select Exam Mode",
-        ["Rapid Review", "Image Sprint"],
-        horizontal=True
-    )
-
-    if mode == "Rapid Review":
-        render_rapid_review()
-    else:
-        render_image_sprint()
