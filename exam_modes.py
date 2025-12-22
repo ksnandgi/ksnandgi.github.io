@@ -148,8 +148,7 @@ def render_image_sprint():
 def render_exam_day_toggle():
     st.session_state.exam_day_mode = st.toggle(
         "🧠 Exam Day Mode",
-        value=st.session_state.exam_day_mode
-    )
+        value=st.session_state.get("exam_day_mode", False)
 
     if st.session_state.exam_day_mode:
         st.warning("Exam Day Mode is ON. Editing & capture are disabled.")
