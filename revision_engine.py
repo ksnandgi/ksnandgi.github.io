@@ -80,7 +80,7 @@ def render_revision_engine():
     candidates = pyqs[
         (pyqs.revision_count == 0) |     # never revised
         (pyqs.fail_count > 0) |           # weak topics
-        (data_layer.is_due(pyqs))         # due by schedule
+        (data_layer.data_layer.is_due(pyqs))         # due by schedule
     ]
 
     if candidates.empty:
@@ -122,10 +122,10 @@ def render_revision_engine():
             row.revision_count += 1
             row.fail_count = max(row.fail_count - 1, 0)
             row.last_revised = date.today()
-            row.next_revision_date = compute_next_revision(row)
+            row.next_revision_date = data_layer.compute_next_revision(row)
 
             pyqs.loc[pyqs.id == row.id, :] = row
-            save_pyqs(pyqs)
+            data_layer.save_pyqs(pyqs)
 
             st.session_state.session_seen.add(row.id)
             st.session_state.revised_today += 1
