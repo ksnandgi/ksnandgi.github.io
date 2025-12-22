@@ -54,21 +54,24 @@ def render_backup_page():
 
 
 def render_restore_page():
-    st.subheader("⬆️ Restore Data")
+    st.subheader("♻️ Restore Data")
+    st.warning("This will overwrite your current data.")
 
-    st.warning("Restoring will overwrite existing data.")
+    uploaded = st.file_uploader(
+        "Upload backup ZIP",
+        type=["zip"]
+    )
 
-    file = st.file_uploader("Upload backup ZIP", type=["zip"])
+    if uploaded:
+        if st.button("Restore Now"):
+            data_layer.restore_full_backup(uploaded)
+            st.success("Restore completed. Reloading app…")
+            time.sleep(1)
+            st.rerun()
 
-    confirm = st.checkbox("I understand this will overwrite current data")
-
-    if file and confirm and st.button("Restore Backup"):
-        # call restore logic here
-        st.success("Backup restored successfully.")
+    if st.button("← Back to Dashboard"):
         st.session_state.current_view = "dashboard"
-
-    if st.button("⬅ Back to Dashboard"):
-        st.session_state.current_view = "dashboard"
+        st.rerun()
 
 
 # =========================
