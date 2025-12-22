@@ -185,14 +185,10 @@ def render_exam_modes():
         st.info("Switch to ⚡ Exam Mode to access exam features.")
         return
 
+    # Decide tool purely based on current_view
+    view = st.session_state.get("current_view", "rapid_review")
 
-    mode = st.radio(
-        "Select Exam Mode",
-        ["Rapid Review", "Image Sprint"],
-        horizontal=True
-    )
-
-    if mode == "Rapid Review":
-        render_rapid_review()
-    else:
+    if view == "image_sprint":
         render_image_sprint()
+    else:
+        render_rapid_review()
