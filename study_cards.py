@@ -148,7 +148,7 @@ def render_study_cards():
                 image_paths=image_paths
             )
 
-            row["card_id"] = safe_next_id(cards["card_id"])
+            row["card_id"] = data_layer.safe_next_id(cards["card_id"])
             cards = pd.concat([cards, pd.DataFrame([row])], ignore_index=True)
             save_cards(cards)
 
