@@ -6,6 +6,7 @@ from study_cards import render_study_cards
 from revision_engine import render_revision_engine
 from exam_modes import render_exam_modes
 from dashboard import render_dashboard
+import data_layer
 
 # =========================
 # SESSION STATE INIT (GLOBAL)
