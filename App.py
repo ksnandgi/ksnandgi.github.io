@@ -71,6 +71,8 @@ active_tab = st.sidebar.radio("Navigate", tabs)
 force_revision = st.session_state.pop("_force_revision", False)
 go_add_pyq = st.session_state.pop("_go_add_pyq", False)
 go_study_cards = st.session_state.pop("_go_study_cards", False)
+go_rapid_review = st.session_state.pop("_go_rapid_review", False)
+go_image_sprint = st.session_state.pop("_go_image_sprint", False)
 
 
 if force_revision:
@@ -81,6 +83,9 @@ elif go_add_pyq:
 
 elif go_study_cards:
     render_study_cards()
+
+elif go_rapid_review or go_image_sprint:
+    render_exam_modes()
 
 elif active_tab == "Dashboard":
     render_dashboard()
