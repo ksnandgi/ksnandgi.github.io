@@ -184,8 +184,8 @@ def render_dashboard():
         # -------------------------
         st.markdown("---")
 
-        pyqs = data.layer.load_pyqs()
-        cards = load_cards()
+        pyqs = data_layer.load_pyqs()
+        cards = data_layer.load_cards()
 
         total_pyqs = len(pyqs)
         total_cards = len(cards)
