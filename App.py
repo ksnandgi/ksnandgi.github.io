@@ -58,7 +58,7 @@ if st.sidebar.button("💾 Backup Data"):
     st.session_state.current_view = "backup"
 
 if st.sidebar.button("⬆️ Restore Data"):
-    st.session_state.current.view = "restore"
+    st.session_state.current_view = "restore"
 
 view = st.session_state.current_view
 
