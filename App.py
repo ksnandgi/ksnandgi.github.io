@@ -44,7 +44,8 @@ st.set_page_config(
 # =========================
 st.title("📘 NEET PG Study System")
 
-render_mode_bar()
+if st.session_state.current_view not in ["backup", "restore"]:
+    render_mode_bar()
 
 st.markdown("---")
 
