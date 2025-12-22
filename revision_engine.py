@@ -80,7 +80,7 @@ def render_revision_engine():
     candidates = pyqs[
         (pyqs.revision_count == 0) |     # never revised
         (pyqs.fail_count > 0) |           # weak topics
-        (data_layer.data_layer.is_due(pyqs))         # due by schedule
+        (data_layer.is_due(pyqs))         # due by schedule
     ]
 
     if candidates.empty:
