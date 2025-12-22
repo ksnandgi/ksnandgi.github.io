@@ -51,17 +51,13 @@ st.markdown("---")
 # =========================
 # SIDEBAR NAVIGATION
 # =========================
-st.sidebar.title("📘 NEET PG")
+st.sidebar.title("🗄️ Backup & Restore")
 
-tabs = [
-    "Dashboard",
-    "Add PYQ",
-    "Study Cards",
-    "Revision",
-    "Exam Modes"
-]
+if st.sidebar.button("💾 Backup Data"):
+    st.session_state["_backup"] = True
 
-active_tab = st.sidebar.radio("Navigate", tabs)
+if st.sidebar.button("⬆️ Restore Data"):
+    st.session_state["_restore"] = True
 
 # =========================
 # TAB ROUTING
