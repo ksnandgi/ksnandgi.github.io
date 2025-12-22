@@ -269,17 +269,17 @@ def upsert_card(
     topic_id: int,
     card_title: str,
     bullets: str,
-    image_paths: str = ""
+    image_paths: str = "",
+    external_url: str = ""
 ):
     cards = load_cards()
 
-    # If card exists → update
     if not cards[cards.topic_id == topic_id].empty:
         cards.loc[cards.topic_id == topic_id, "card_title"] = card_title
         cards.loc[cards.topic_id == topic_id, "bullets"] = bullets
         cards.loc[cards.topic_id == topic_id, "image_paths"] = image_paths
+        cards.loc[cards.topic_id == topic_id, "external_url"] = external_url
 
-    # Else → create new
     else:
         new_row = {
             "card_id": safe_next_id(cards, "card_id"),
@@ -287,6 +287,7 @@ def upsert_card(
             "card_title": card_title,
             "bullets": bullets,
             "image_paths": image_paths,
+            "external_url": external_url,
             "created_at": date.today()
         }
         cards = pd.concat([cards, pd.DataFrame([new_row])], ignore_index=True)
