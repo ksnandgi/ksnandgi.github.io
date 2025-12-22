@@ -7,6 +7,7 @@ from revision_engine import render_revision_engine
 from exam_modes import render_exam_modes
 from dashboard import render_dashboard
 import data_layer
+import time
 
 # =========================
 # SESSION STATE INIT (GLOBAL)
