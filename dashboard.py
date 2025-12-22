@@ -92,7 +92,7 @@ def render_dashboard():
     # 📘 STUDY MODE DASHBOARD
     # =========================
     if mode == "Study":
-        st.markdown("## 📘 Suggested topics to revise")
+        st.subheader("## 📘 Suggested topics to revise")
 
         pyqs = data_layer.load_pyqs()
         cards = data_layer.load_cards()
@@ -136,7 +136,7 @@ def render_dashboard():
         # Quick Actions
         # -------------------------
         st.markdown("---")
-        st.markdown("### Quick Actions")
+        st.subheader("### Quick Actions")
 
         col1, col2 = st.columns(2)
 
@@ -161,7 +161,7 @@ def render_dashboard():
         # Light Progress Overview
         # -------------------------
         st.markdown("---")
-        st.markdown("### Progress Overview")
+        st.subheader("### Progress Overview")
 
         revised = pyqs.revision_count.sum()
         weak_count = (pyqs.fail_count > 0).sum()
