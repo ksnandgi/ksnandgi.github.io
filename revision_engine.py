@@ -59,7 +59,7 @@ def render_revision_engine():
     init_revision_session()
 
     pyqs = data_layer.load_pyqs()
-    cards = load_cards()
+    cards = data_layer.load_cards()
 
     # Only topics with study cards
     pyqs = pyqs[pyqs.id.isin(cards.topic_id)]
