@@ -95,7 +95,7 @@ def render_revision_engine():
    # ]
 
     if candidates.empty:
-        st.info(“No new topics to show right now.”)
+        st.info(“No New topics to show right now.”)
         return
 
     row = candidates.iloc[0]
