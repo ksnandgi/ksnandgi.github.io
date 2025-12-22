@@ -69,9 +69,18 @@ active_tab = st.sidebar.radio("Navigate", tabs)
 
 # Force revision if triggered from dashboard
 force_revision = st.session_state.pop("_force_revision", False)
+go_add_pyq = st.session_state.pop("_go_add_pyq", False)
+go_study_cards = st.session_state.pop("_go_study_cards", False)
+
 
 if force_revision:
     render_revision_engine()
+
+elif go_add_pyq:
+    render_pyq_capture()
+
+elif go_study_cards:
+    render_study_cards()
 
 elif active_tab == "Dashboard":
     render_dashboard()
