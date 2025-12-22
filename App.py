@@ -31,6 +31,8 @@ def render_mode_bar():
             use_container_width=True,
             type="primary" if st.session_state.app_mode == mode else "secondary",
         ):
+            st.session_state.focus_mode = False   # 🔑 EXIT FOCUS MODE
+            st.session_state.edit_card = False    # 🔑 SAFETY RESET
             st.session_state.app_mode = mode
             st.session_state.current_view = "dashboard"
             st.rerun()
