@@ -16,7 +16,7 @@ import pandas as pd
 import time
 from datetime import date
 
-from data_layer import load_pyqs, load_cards, save_pyqs, is_due
+import data_layer
 
 # =========================
 # SESSION STATE
