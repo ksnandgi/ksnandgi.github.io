@@ -144,7 +144,11 @@ def render_dashboard():
             if st.button("🖼️ Image Sprint"):
                st.session_state.app_mode = "Exam"
                st.session_state.current_view = "image_sprint"
-               st.session_state.exam_seen = set()
+
+           # 🔑 RESET IMAGE SPRINT STATE
+               st.session_state.sprint_index = 0
+               st.session_state.last_sprint_subject = None
+
                st.rerun()
 
         with col2:
@@ -221,9 +225,14 @@ def render_dashboard():
                 st.rerun()
 
         with col2:
-            if st.button("🖼️ Image Sprint", use_container_width=True):
-                st.session_state.current_view = "image_sprint"
-                st.session_state.exam_seen = set()
-                st.rerun()
+            if st.button("🖼️ Image Sprint"):
+               st.session_state.app_mode = "Exam"
+               st.session_state.current_view = "image_sprint"
+
+            # 🔑 RESET IMAGE SPRINT STATE
+               st.session_state.sprint_index = 0
+               st.session_state.last_sprint_subject = None
+
+               st.rerun()
 
         st.markdown("---")
