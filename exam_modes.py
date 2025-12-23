@@ -91,15 +91,19 @@ def render_rapid_review():
     # =========================
     # PYQ IMAGES (fallback)
     # =========================
+    # =========================
+    # PYQ IMAGE DISPLAY (FIXED)
+    # =========================
     if "pyq_image_paths" in pyqs.columns:
-        pyq_img = pyqs.loc[pyqs.id == row.id, "pyq_image_paths"].values
+        pyq_images = pyqs.loc[pyqs.id == row.id,   "pyq_image_paths"].values
+
         if (
-            len(pyq_img)
-            and isinstance(pyq_img[0], str)
-            and pyq_img[0].strip()
+            len(pyq_images) > 0
+            and isinstance(pyq_images[0], str)
+            and pyq_images[0].strip()
         ):
             st.markdown("#### 🖼️ PYQ Image")
-            for p in pyq_img[0].split(";"):
+            for p in pyq_images[0].split(";"):
                 st.image(p)
             content_shown = True
 
