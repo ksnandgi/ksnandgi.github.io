@@ -164,6 +164,7 @@ def render_pyq_capture():
         st.session_state.app_mode = "Build"
         st.session_state.pop("last_added_pyq", None)
         st.rerun()
+        st.stop()
 
     if st.button("🏠 Back to Dashboard"):
         st.session_state.pop("last_added_pyq", None)
