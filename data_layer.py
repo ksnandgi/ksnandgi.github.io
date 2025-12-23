@@ -3,7 +3,7 @@ Module 0 — Data Layer (Foundation)
 """
 
 from pathlib import Path
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 import pandas as pd
 from io import BytesIO
 import zipfile
@@ -32,7 +32,7 @@ PYQ_COLUMNS = [
     "subject",
     "pyq_years",
     "trigger_line",
-    "pyq_image_paths", 
+    "pyq_image_paths",
     "revision_count",
     "fail_count",
     "last_revised",
@@ -79,7 +79,6 @@ def load_csv(path: Path, columns: list, date_cols: list | None = None) -> pd.Dat
 def save_csv(df: pd.DataFrame, path: Path) -> None:
     df.to_csv(path, index=False)
 
-
 # =========================
 # SAFE ID GENERATION
 # =========================
@@ -88,7 +87,6 @@ def safe_next_id(series: pd.Series) -> int:
     if series.empty or series.isna().all():
         return 1
     return int(series.max()) + 1
-
 
 # =========================
 # SPACED REPETITION
@@ -104,7 +102,6 @@ def is_due(df: pd.DataFrame) -> pd.Series:
     today = pd.Timestamp(date.today())
     return df["next_revision_date"].isna() | (df["next_revision_date"] <= today)
 
-
 # =========================
 # DATA ACCESS
 # =========================
@@ -116,31 +113,34 @@ def load_pyqs() -> pd.DataFrame:
     # 🔧 SCHEMA HEALING (CRITICAL)
     # =========================
 
-    # Case 1: Corrupted merged column (image paths accidentally merged)
+    # Corrupted merged column
     if "pyq_image_pathsrevision_count" in df.columns:
-        # Salvage image paths
         df["pyq_image_paths"] = df["pyq_image_pathsrevision_count"]
-
-        # Ensure revision_count exists separately
-        if "revision_count" not in df.columns:
-            df["revision_count"] = 0
-
-        # Drop corrupted column
+        df["revision_count"] = 0
         df = df.drop(columns=["pyq_image_pathsrevision_count"])
 
-    # Case 2: Missing image column
     if "pyq_image_paths" not in df.columns:
         df["pyq_image_paths"] = ""
 
-    # Case 3: Missing revision_count
     if "revision_count" not in df.columns:
         df["revision_count"] = 0
 
-    # Case 4: Missing fail_count (defensive)
     if "fail_count" not in df.columns:
         df["fail_count"] = 0
 
-    # Ensure numeric safety
+    if "trigger_line" not in df.columns:
+        df["trigger_line"] = ""
+
+    if "pyq_years" not in df.columns:
+        df["pyq_years"] = ""
+
+    # =========================
+    # 🔑 TEXT FIELD BACKFILL (FINAL FIX)
+    # =========================
+    df["trigger_line"] = df["trigger_line"].fillna("").astype(str)
+    df["pyq_years"] = df["pyq_years"].fillna("").astype(str)
+
+    # Numeric safety
     df["revision_count"] = df["revision_count"].fillna(0).astype(int)
     df["fail_count"] = df["fail_count"].fillna(0).astype(int)
 
@@ -158,7 +158,6 @@ def save_pyqs(df: pd.DataFrame) -> None:
 def save_cards(df: pd.DataFrame) -> None:
     save_csv(df, CARD_FILE)
 
-
 # =========================
 # INVARIANTS
 # =========================
@@ -166,24 +165,18 @@ def save_cards(df: pd.DataFrame) -> None:
 def card_exists_for_topic(cards_df: pd.DataFrame, topic_id: int) -> bool:
     return not cards_df[cards_df["topic_id"] == topic_id].empty
 
-
 # =========================
 # FACTORIES
 # =========================
 
-def new_pyq_row(
-    topic: str,
-    subject: str,
-    trigger_line: str,
-    pyq_years: str | None = None
-) -> dict:
+def new_pyq_row(topic: str, subject: str, trigger_line: str, pyq_years: str | None = None) -> dict:
     return {
         "id": None,
         "topic": topic.strip(),
         "subject": subject,
         "pyq_years": pyq_years.strip() if pyq_years else "",
         "trigger_line": trigger_line.strip(),
-        "pyq_image_paths":"",
+        "pyq_image_paths": "",
         "revision_count": 0,
         "fail_count": 0,
         "last_revised": None,
@@ -193,13 +186,8 @@ def new_pyq_row(
     }
 
 
-def new_card_row(
-    topic_id: int,
-    bullets: str,
-    card_title: str | None = None,
-    external_url: str | None = None,
-    image_paths: list[str] | None = None
-) -> dict:
+def new_card_row(topic_id: int, bullets: str, card_title: str | None = None,
+                 external_url: str | None = None, image_paths: list[str] | None = None) -> dict:
     return {
         "card_id": None,
         "topic_id": topic_id,
@@ -211,26 +199,21 @@ def new_card_row(
         "schema_version": DATA_VERSION
     }
 
-
 # =========================
 # BACKUP / RESTORE
 # =========================
 
 def create_full_backup():
     buffer = BytesIO()
-
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
         if PYQ_FILE.exists():
             z.write(PYQ_FILE)
-
         if CARD_FILE.exists():
             z.write(CARD_FILE)
-
         if IMAGE_DIR.exists():
             for root, _, files in os.walk(IMAGE_DIR):
                 for f in files:
                     z.write(os.path.join(root, f))
-
     buffer.seek(0)
     return buffer
 
@@ -249,28 +232,18 @@ def restore_full_backup(uploaded_file):
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     return True
 
-
 # =========================
 # CARD UPSERT / DELETE
 # =========================
 
-def upsert_card(
-    topic_id: int,
-    card_title: str,
-    bullets: str,
-    image_paths: str = "",
-    external_url: str = ""
-):
+def upsert_card(topic_id: int, card_title: str, bullets: str,
+                image_paths: str = "", external_url: str = ""):
     cards = load_cards()
 
     if not cards[cards.topic_id == topic_id].empty:
-        cards.loc[cards.topic_id == topic_id, [
-            "card_title",
-            "bullets",
-            "image_paths",
-            "external_url"
-        ]] = [card_title, bullets, image_paths, external_url]
-
+        cards.loc[cards.topic_id == topic_id,
+                  ["card_title", "bullets", "image_paths", "external_url"]] = \
+            [card_title, bullets, image_paths, external_url]
     else:
         new_row = {
             "card_id": safe_next_id(cards["card_id"]),
