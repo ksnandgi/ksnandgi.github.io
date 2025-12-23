@@ -44,15 +44,19 @@ def render_mode_bar():
             use_container_width=True,
             type="primary" if st.session_state.app_mode == mode else "secondary",
         ):
-            # 🔑 Hard reset transient UI states
+            # 🔑 Reset transient UI states
             st.session_state.focus_mode = False
             st.session_state.edit_card = False
             st.session_state.revision_filter = None
 
-            st.session_state.app_mode = mode
-            st.session_state.current_view = "dashboard"
-            st.rerun()
+            # 🔑 ONLY change view when switching MODES
+            if st.session_state.app_mode != mode:
+                st.session_state.app_mode = mode
+                st.session_state.current_view = "dashboard"
+            else:
+                st.session_state.app_mode = mode
 
+            st.rerun()
 
 # =========================
 # BACKUP / RESTORE PAGES
