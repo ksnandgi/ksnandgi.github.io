@@ -71,7 +71,6 @@ def render_rapid_review():
     # =========================
     # PYQ / CARD CONTENT DISPLAY
     # =========================
-    st.write("PYQ columns:", pyqs.columns.tolist())
 
     # 1️⃣ PYQ IMAGES (NEW)
     if "image_paths" in pyqs.columns:
