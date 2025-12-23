@@ -10,7 +10,7 @@ import os
 import data_layer
 
 # =========================
-# AUTO CARD GENERATOR
+# AUTO CARD GENERATOR (MANUAL)
 # =========================
 
 def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
@@ -33,7 +33,6 @@ def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
 def save_uploaded_images(files, topic_id: int) -> list[str]:
     paths = []
 
-    # Streamlit Cloud–safe
     data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
     for f in files:
@@ -157,9 +156,13 @@ def render_study_cards():
 
     st.markdown("### 🧠 Key Points")
 
-    default_bullets = (
-        card_df.iloc[0].bullets if not card_df.empty else ""
-    )
+    # 🔑 AUTO-DRAFT PRIORITY
+    if st.session_state.get("auto_card_draft"):
+        default_bullets = st.session_state.auto_card_draft
+    elif not card_df.empty:
+        default_bullets = card_df.iloc[0].bullets
+    else:
+        default_bullets = ""
 
     with st.expander("✍️ Auto Draft (Optional)"):
         raw_text = st.text_area("Paste textbook / notes", height=150)
@@ -202,13 +205,18 @@ def render_study_cards():
             )
 
             st.success("Study card saved.")
+
+            # 🔑 CLEAR DRAFT STATE
             st.session_state.pop("draft_bullets", None)
+            st.session_state.pop("auto_card_draft", None)
+
             st.session_state.edit_card = False
             st.session_state.focus_mode = False
             st.rerun()
 
     with col2:
         if st.button("← Cancel"):
+            st.session_state.pop("auto_card_draft", None)
             st.session_state.edit_card = False
             st.session_state.focus_mode = False
             st.rerun()
