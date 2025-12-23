@@ -76,9 +76,10 @@ def render_study_cards():
         placeholder="e.g. pneumo, anemia, stroke"
     )
 
-    filtered = pyqs[
-        pyqs["topic"].str.contains(query, case=False, na=False)
-    ] if query else pyqs
+    filtered = (
+        pyqs[pyqs["topic"].str.contains(query, case=False, na=False)]
+        if query else pyqs
+    )
 
     if filtered.empty:
         st.info("No matching topics found.")
@@ -86,25 +87,28 @@ def render_study_cards():
 
     filtered = filtered.copy()
     filtered["label"] = filtered["topic"] + " (" + filtered["subject"] + ")"
-    topic_map = dict(zip(filtered["label"], filtered["id"]))
+
+    labels = filtered["label"].tolist()
+    ids = filtered["id"].tolist()
 
     # =========================
     # AUTO-SELECT FROM PYQ → STUDY CARD
     # =========================
     auto_topic_id = st.session_state.get("auto_card_topic_id")
 
-    if auto_topic_id and auto_topic_id in filtered["id"].values:
-        selected_label = filtered.loc[
-            filtered.id == auto_topic_id, "label"
-        ].iloc[0]
+    if auto_topic_id in ids:
+        default_index = ids.index(auto_topic_id)
         st.session_state.pop("auto_card_topic_id", None)
     else:
-        selected_label = st.selectbox(
-            "Select Topic",
-            list(topic_map.keys())
-        )
+        default_index = 0
 
-    topic_id = topic_map[selected_label]
+    selected_label = st.selectbox(
+        "Select Topic",
+        labels,
+        index=default_index
+    )
+
+    topic_id = ids[labels.index(selected_label)]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
     card_df = cards[cards.topic_id == topic_id]
 
@@ -204,9 +208,11 @@ def render_study_cards():
                 external_url=""
             )
 
+            # Clean transient state
             st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
             st.session_state.edit_card = False
+
             st.rerun()
 
     with col2:
