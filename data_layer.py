@@ -1,15 +1,5 @@
 """
 Module 0 — Data Layer (Foundation)
-
-Responsibilities:
-- CSV schema definitions
-- Safe loading & saving
-- Schema healing
-- Safe ID generation
-- Date handling
-- Invariants enforcement (1 Study Card per Topic)
-
-No UI logic. No Streamlit dependencies.
 """
 
 from pathlib import Path
@@ -19,7 +9,6 @@ from io import BytesIO
 import zipfile
 import os
 import shutil
-
 
 # =========================
 # GLOBAL CONFIG
@@ -31,7 +20,7 @@ DATA_VERSION = "v1"
 PYQ_FILE = BASE_DIR / "pyq_topics.csv"
 CARD_FILE = BASE_DIR / "study_cards.csv"
 IMAGE_DIR = BASE_DIR / "card_images"
-IMAGE_DIR.mkdir(exist_ok=True)
+IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # =========================
 # SCHEMA DEFINITIONS
@@ -62,37 +51,23 @@ CARD_COLUMNS = [
     "schema_version"
 ]
 
-DATE_COLUMNS_PYQ = [
-    "last_revised",
-    "next_revision_date",
-    "created_at"
-]
-
-DATE_COLUMNS_CARD = [
-    "created_at"
-]
+DATE_COLUMNS_PYQ = ["last_revised", "next_revision_date", "created_at"]
+DATE_COLUMNS_CARD = ["created_at"]
 
 # =========================
 # CORE LOAD / SAVE
 # =========================
 
 def load_csv(path: Path, columns: list, date_cols: list | None = None) -> pd.DataFrame:
-    """
-    Load CSV safely.
-    - Heals missing columns
-    - Parses date columns safely
-    """
     if path.exists():
         df = pd.read_csv(path)
     else:
         df = pd.DataFrame(columns=columns)
 
-    # Heal missing columns
     for col in columns:
         if col not in df.columns:
             df[col] = None
 
-    # Parse date columns safely
     if date_cols:
         for col in date_cols:
             df[col] = pd.to_datetime(df[col], errors="coerce")
@@ -101,7 +76,6 @@ def load_csv(path: Path, columns: list, date_cols: list | None = None) -> pd.Dat
 
 
 def save_csv(df: pd.DataFrame, path: Path) -> None:
-    """Persist CSV without index."""
     df.to_csv(path, index=False)
 
 
@@ -110,40 +84,28 @@ def save_csv(df: pd.DataFrame, path: Path) -> None:
 # =========================
 
 def safe_next_id(series: pd.Series) -> int:
-    """
-    Generate next integer ID safely.
-    Handles:
-    - Empty DataFrame
-    - All-NaN columns
-    """
     if series.empty or series.isna().all():
         return 1
     return int(series.max()) + 1
 
 
 # =========================
-# SPACED REPETITION LOGIC
+# SPACED REPETITION
 # =========================
 
 def compute_next_revision(revision_count: int) -> pd.Timestamp:
-    """
-    Spaced repetition schedule.
-    """
     schedule_days = [0, 1, 3, 7, 15, 30]
-    idx = min(revision_count, len(schedule_days) - 1)
+    idx = min(int(revision_count), len(schedule_days) - 1)
     return pd.Timestamp.now() + timedelta(days=schedule_days[idx])
 
 
 def is_due(df: pd.DataFrame) -> pd.Series:
-    """
-    Returns boolean mask of topics due for revision.
-    """
     today = pd.Timestamp(date.today())
     return df["next_revision_date"].isna() | (df["next_revision_date"] <= today)
 
 
 # =========================
-# DATA ACCESS HELPERS
+# DATA ACCESS
 # =========================
 
 def load_pyqs() -> pd.DataFrame:
@@ -167,15 +129,11 @@ def save_cards(df: pd.DataFrame) -> None:
 # =========================
 
 def card_exists_for_topic(cards_df: pd.DataFrame, topic_id: int) -> bool:
-    """
-    Enforces invariant:
-    - One Study Card per Topic
-    """
     return not cards_df[cards_df["topic_id"] == topic_id].empty
 
 
 # =========================
-# FACTORY HELPERS
+# FACTORIES
 # =========================
 
 def new_pyq_row(
@@ -184,11 +142,8 @@ def new_pyq_row(
     trigger_line: str,
     pyq_years: str | None = None
 ) -> dict:
-    """
-    Create a new PYQ row with defaults.
-    """
     return {
-        "id": None,  # filled at insertion
+        "id": None,
         "topic": topic.strip(),
         "subject": subject,
         "pyq_years": pyq_years.strip() if pyq_years else "",
@@ -209,11 +164,8 @@ def new_card_row(
     external_url: str | None = None,
     image_paths: list[str] | None = None
 ) -> dict:
-    """
-    Create a new Study Card row.
-    """
     return {
-        "card_id": None,  # filled at insertion
+        "card_id": None,
         "topic_id": topic_id,
         "card_title": card_title.strip() if card_title else "",
         "bullets": bullets.strip(),
@@ -224,46 +176,47 @@ def new_card_row(
     }
 
 
+# =========================
+# BACKUP / RESTORE
+# =========================
 
 def create_full_backup():
     buffer = BytesIO()
 
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
-        # CSV files
-        if os.path.exists("pyq_topics.csv"):
-            z.write("pyq_topics.csv")
+        if PYQ_FILE.exists():
+            z.write(PYQ_FILE)
 
-        if os.path.exists("study_cards.csv"):
-            z.write("study_cards.csv")
+        if CARD_FILE.exists():
+            z.write(CARD_FILE)
 
-        # Images
-        if os.path.exists("card_images"):
-            for root, _, files in os.walk("card_images"):
+        if IMAGE_DIR.exists():
+            for root, _, files in os.walk(IMAGE_DIR):
                 for f in files:
-                    path = os.path.join(root, f)
-                    z.write(path)
+                    z.write(os.path.join(root, f))
 
     buffer.seek(0)
     return buffer
 
 
-
 def restore_full_backup(uploaded_file):
-    # Clean existing data
-    for f in ["pyq_topics.csv", "study_cards.csv"]:
-        if os.path.exists(f):
-            os.remove(f)
+    for f in [PYQ_FILE, CARD_FILE]:
+        if f.exists():
+            f.unlink()
 
-    if os.path.exists("card_images"):
-        shutil.rmtree("card_images")
+    if IMAGE_DIR.exists():
+        shutil.rmtree(IMAGE_DIR)
 
-    # Extract uploaded zip
     with zipfile.ZipFile(uploaded_file, "r") as z:
         z.extractall(".")
 
+    IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     return True
 
 
+# =========================
+# CARD UPSERT / DELETE
+# =========================
 
 def upsert_card(
     topic_id: int,
@@ -275,30 +228,30 @@ def upsert_card(
     cards = load_cards()
 
     if not cards[cards.topic_id == topic_id].empty:
-        cards.loc[cards.topic_id == topic_id, "card_title"] = card_title
-        cards.loc[cards.topic_id == topic_id, "bullets"] = bullets
-        cards.loc[cards.topic_id == topic_id, "image_paths"] = image_paths
-        cards.loc[cards.topic_id == topic_id, "external_url"] = external_url
+        cards.loc[cards.topic_id == topic_id, [
+            "card_title",
+            "bullets",
+            "image_paths",
+            "external_url"
+        ]] = [card_title, bullets, image_paths, external_url]
 
     else:
         new_row = {
-            "card_id": safe_next_id(cards),
+            "card_id": safe_next_id(cards["card_id"]),
             "topic_id": topic_id,
             "card_title": card_title,
             "bullets": bullets,
             "image_paths": image_paths,
             "external_url": external_url,
-            "created_at": date.today()
+            "created_at": pd.Timestamp.now(),
+            "schema_version": DATA_VERSION
         }
         cards = pd.concat([cards, pd.DataFrame([new_row])], ignore_index=True)
 
     save_cards(cards)
 
 
-
 def delete_card(topic_id: int):
     cards = load_cards()
-
     cards = cards[cards.topic_id != topic_id]
-
     save_cards(cards)
