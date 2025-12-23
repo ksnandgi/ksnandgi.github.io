@@ -1,6 +1,5 @@
 import streamlit as st
 import time
-
 from datetime import datetime
 
 # =========================
@@ -44,17 +43,15 @@ def render_mode_bar():
             use_container_width=True,
             type="primary" if st.session_state.app_mode == mode else "secondary",
         ):
-            # 🔑 Reset transient UI states
+            # Reset transient UI states
             st.session_state.focus_mode = False
             st.session_state.edit_card = False
             st.session_state.revision_filter = None
 
-            # 🔑 ONLY change view when switching MODES
+            # Only reset view when mode actually changes
             if st.session_state.app_mode != mode:
                 st.session_state.app_mode = mode
                 st.session_state.current_view = "dashboard"
-            else:
-                st.session_state.app_mode = mode
 
             st.rerun()
 
@@ -68,6 +65,7 @@ def render_backup_page():
     buffer = data_layer.create_full_backup()
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     filename = f"neet_pg_backup_{timestamp}.zip"
+
     st.download_button(
         label="⬇️ Download Full Backup",
         data=buffer,
@@ -84,10 +82,7 @@ def render_restore_page():
     st.subheader("♻️ Restore Data")
     st.warning("This will overwrite your current data.")
 
-    uploaded = st.file_uploader(
-        "Upload backup ZIP",
-        type=["zip"]
-    )
+    uploaded = st.file_uploader("Upload backup ZIP", type=["zip"])
 
     if uploaded:
         if st.button("Restore Now"):
@@ -100,19 +95,19 @@ def render_restore_page():
         st.session_state.current_view = "dashboard"
         st.rerun()
 
-
 # =========================
 # MAIN LAYOUT
 # =========================
 st.markdown("#### 📘 NEET PG Study System")
 
-if st.session_state.current_view in ["dashboard", "add_pyq"]:
+# 🔑 MODE BAR MUST BE STABLE
+if st.session_state.current_view not in ["backup", "restore"]:
     render_mode_bar()
 
 st.markdown("---")
 
 # =========================
-# SIDEBAR (SECONDARY ONLY)
+# SIDEBAR
 # =========================
 st.sidebar.title("🗄️ Backup & Restore")
 
@@ -123,7 +118,6 @@ if st.sidebar.button("💾 Backup Data"):
 if st.sidebar.button("⬆️ Restore Data"):
     st.session_state.current_view = "restore"
     st.rerun()
-
 
 # =========================
 # VIEW ROUTER
