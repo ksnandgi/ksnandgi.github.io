@@ -29,6 +29,7 @@ def init_exam_state():
 
 def render_rapid_review():
     st.subheader("⚡ Rapid Review")
+    st.write("DEBUG pyq_image_paths:", repr(row.pyq_image_paths))
 
     init_exam_state()
 
