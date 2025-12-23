@@ -6,7 +6,6 @@ Responsibilities:
 - Image Sprint Mode (one item at a time)
 
 Read-only. No content creation.
-(Session suppression & exam-day mode intentionally disabled during development)
 """
 
 import streamlit as st
@@ -46,7 +45,6 @@ def render_rapid_review():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
-    # ---- Candidate selection (safe for missing columns) ----
     candidates = pyqs[
         (
             (pyqs.get("revision_count", 0) == 0)
@@ -69,36 +67,52 @@ def render_rapid_review():
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
-    # =========================
-    # CONTENT DISPLAY PRIORITY
-    # =========================
+    content_shown = False
 
+    # =========================
+    # STUDY CARD CONTENT
+    # =========================
     card_df = cards[cards.topic_id == row.id]
 
-    # 1️⃣ STUDY CARD (highest priority)
     if not card_df.empty:
         card = card_df.iloc[0]
+
+        if isinstance(card.bullets, str) and card.bullets.strip():
+            for line in card.bullets.splitlines():
+                st.write(line)
+            content_shown = True
 
         if isinstance(card.image_paths, str) and card.image_paths.strip():
             st.markdown("#### 🖼️ Study Card Images")
             for p in card.image_paths.split(";"):
                 st.image(p)
+            content_shown = True
 
-        for line in card.bullets.splitlines():
-            st.write(line)
-
-    # 2️⃣ PYQ IMAGES (fallback)
-    elif "pyq_image_paths" in pyqs.columns:
+    # =========================
+    # PYQ IMAGES (fallback)
+    # =========================
+    if "pyq_image_paths" in pyqs.columns:
         pyq_img = pyqs.loc[pyqs.id == row.id, "pyq_image_paths"].values
-        if len(pyq_img) and isinstance(pyq_img[0], str) and pyq_img[0].strip():
+        if (
+            len(pyq_img)
+            and isinstance(pyq_img[0], str)
+            and pyq_img[0].strip()
+        ):
             st.markdown("#### 🖼️ PYQ Image")
             for p in pyq_img[0].split(";"):
                 st.image(p)
+            content_shown = True
 
-    # 3️⃣ TRIGGER LINE (last fallback)
-    elif row.trigger_line:
+    # =========================
+    # TRIGGER LINE (last fallback)
+    # =========================
+    if not content_shown and isinstance(row.trigger_line, str) and row.trigger_line.strip():
         st.info("No study card yet for this topic.")
         st.markdown(f"**Trigger line:** {row.trigger_line}")
+        content_shown = True
+
+    if not content_shown:
+        st.warning("No content available for this topic yet.")
 
     # =========================
     # ACTIONS
@@ -113,7 +127,6 @@ def render_rapid_review():
                 pyqs.loc[pyqs.id == row.id, "fail_count"].clip(lower=0)
             )
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
-
             data_layer.save_pyqs(pyqs)
             st.rerun()
 
@@ -121,7 +134,6 @@ def render_rapid_review():
         if st.button("❌ Weak"):
             pyqs.loc[pyqs.id == row.id, "fail_count"] += 1
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
-
             data_layer.save_pyqs(pyqs)
             st.rerun()
 
@@ -157,7 +169,6 @@ def render_image_sprint():
 
     auto = st.toggle("Auto-advance", value=False)
 
-    # Reset sprint if subject changes
     if st.session_state.last_sprint_subject != subject:
         st.session_state.sprint_index = 0
         st.session_state.last_sprint_subject = subject
