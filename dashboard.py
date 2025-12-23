@@ -117,13 +117,15 @@ def render_dashboard():
 
         with col1:
             if st.button("➕ Add PYQ", use_container_width=True):
-                st.session_state.current_view = "add_pyq"
-                st.rerun()
+               if st.session_state.current_view=="dashboard":
+                  st.session_state.current_view = "add_pyq"
+                  st.rerun()
 
         with col2:
             if st.button("🗂️ Create / Update Study Card", use_container_width=True):
-                st.session_state.current_view = "study_cards"
-                st.rerun()
+                if st.session_state.current_view=="dashboard":
+                   st.session_state.current_view = "study_cards"
+                   st.rerun()
 
         st.markdown("---")
 
