@@ -79,7 +79,7 @@ def render_pyq_capture():
 
     st.subheader("➕ Add PYQ")
 
-    # 🔑 ALWAYS INITIALIZE (CRITICAL)
+    # 🔑 ALWAYS INITIALIZE
     image_paths: list[str] = []
 
     # ---- PYQ FORM ----
@@ -106,7 +106,7 @@ def render_pyq_capture():
 
     pyqs = data_layer.load_pyqs()
 
-    # 🔑 HARD SCHEMA GUARANTEE
+    # ---- SCHEMA GUARANTEE ----
     if "pyq_image_paths" not in pyqs.columns:
         pyqs["pyq_image_paths"] = ""
 
@@ -118,7 +118,7 @@ def render_pyq_capture():
     new_id = data_layer.safe_next_id(pyqs["id"])
 
     # =========================
-    # SAVE PYQ IMAGES (SAFE)
+    # SAVE PYQ IMAGES
     # =========================
     if pyq_images:
         data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -140,11 +140,11 @@ def render_pyq_capture():
 
     row["id"] = new_id
     row["pyq_image_paths"] = ";".join(image_paths)
+    row["pyq_years"] = years.strip()   # 🔑 CRITICAL FIX
 
     pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
     data_layer.save_pyqs(pyqs)
 
-    # Persist for next action
     st.session_state.last_added_pyq = row
 
     st.success("✅ PYQ added successfully.")
