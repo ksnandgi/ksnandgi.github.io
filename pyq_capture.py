@@ -72,6 +72,7 @@ def generate_study_card_draft(topic: str, subject: str, trigger: str) -> str:
 # =========================
 
 def render_pyq_capture():
+    # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.info("Switch to 🛠️ Build Mode to add PYQs.")
         return
@@ -81,6 +82,7 @@ def render_pyq_capture():
     # 🔑 ALWAYS INITIALIZE (CRITICAL)
     image_paths: list[str] = []
 
+    # ---- PYQ FORM ----
     with st.form("pyq_form", clear_on_submit=True):
         topic = st.text_input("Topic")
         subject = st.selectbox("Subject", SUBJECTS)
@@ -104,10 +106,11 @@ def render_pyq_capture():
 
     pyqs = data_layer.load_pyqs()
 
+    # 🔑 HARD SCHEMA GUARANTEE
     if "pyq_image_paths" not in pyqs.columns:
         pyqs["pyq_image_paths"] = ""
 
-    # Soft duplicate guard
+    # ---- SOFT DUPLICATE GUARD ----
     if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
         st.warning("A PYQ with this topic already exists.")
         return
@@ -125,6 +128,9 @@ def render_pyq_capture():
                 out.write(f.getbuffer())
             image_paths.append(str(path))
 
+    # =========================
+    # CREATE PYQ ROW
+    # =========================
     row = data_layer.new_pyq_row(
         topic=topic.strip(),
         subject=subject,
@@ -138,11 +144,15 @@ def render_pyq_capture():
     pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
     data_layer.save_pyqs(pyqs)
 
+    # Persist for next action
     st.session_state.last_added_pyq = row
-    st.success("✅ PYQ added successfully.")
 
+    st.success("✅ PYQ added successfully.")
     st.markdown("---")
 
+    # =========================
+    # POST-SAVE ACTIONS
+    # =========================
     if st.button("🧠 Create Study Card (Auto Draft)"):
         st.session_state.auto_card_draft = generate_study_card_draft(
             topic=row["topic"],
