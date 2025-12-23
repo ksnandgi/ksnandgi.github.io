@@ -106,10 +106,7 @@ def render_restore_page():
 # =========================
 st.markdown("#### 📘 NEET PG Study System")
 
-if (
-    st.session_state.current_view not in ["backup", "restore"]
-    and st.session_state.current_view!="study_cards"
-):
+if st.session_state.current_view in ["dashboard", "add_pyq"]:
     render_mode_bar()
 
 st.markdown("---")
