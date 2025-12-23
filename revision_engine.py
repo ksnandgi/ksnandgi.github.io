@@ -35,8 +35,8 @@ def init_revision_session():
 # PRIORITIZATION
 # =========================
 
-def prioritize(pyqs: pd.DataFrame) -> pd.DataFrame:
-    return pyqs.sort_values(
+def prioritize(df: pd.DataFrame) -> pd.DataFrame:
+    return df.sort_values(
         by=["fail_count", "revision_count"],
         ascending=[False, True]
     )
@@ -56,32 +56,36 @@ def render_revision_engine():
 
     init_revision_session()
 
-    pyqs = data_layer.load_pyqs()
+    base_pyqs = data_layer.load_pyqs()
     cards = data_layer.load_cards()
 
-    # Only topics WITH study cards
-    pyqs = pyqs[pyqs.id.isin(cards.topic_id)]
+    if cards.empty:
+        st.info("No study cards available yet.")
+        return
 
-    if pyqs.empty:
+    # Only topics WITH study cards (view-level)
+    view_pyqs = base_pyqs[base_pyqs.id.isin(cards.topic_id)]
+
+    if view_pyqs.empty:
         st.info("No topics available for revision yet.")
         return
 
     # -------------------------
     # SUBJECT FILTER
     # -------------------------
-    subjects = ["All"] + sorted(pyqs.subject.unique().tolist())
+    subjects = ["All"] + sorted(view_pyqs.subject.unique().tolist())
     subject = st.selectbox("Subject", subjects)
 
     if subject != "All":
-        pyqs = pyqs[pyqs.subject == subject]
+        view_pyqs = view_pyqs[view_pyqs.subject == subject]
 
     # -------------------------
     # REVISION CANDIDATES
     # -------------------------
-    candidates = pyqs[
-        (pyqs.revision_count == 0) |
-        (pyqs.fail_count > 0) |
-        (data_layer.is_due(pyqs))
+    candidates = view_pyqs[
+        (view_pyqs.revision_count == 0)
+        | (view_pyqs.fail_count > 0)
+        | (data_layer.is_due(view_pyqs))
     ]
 
     if candidates.empty:
@@ -94,11 +98,24 @@ def render_revision_engine():
     card = cards[cards.topic_id == row.id].iloc[0]
 
     # -------------------------
-    # DISPLAY
+    # HEADER
     # -------------------------
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
+    st.markdown("---")
+
+    if isinstance(row.trigger_line, str) and row.trigger_line.strip():
+        st.markdown(f"**🧠 Trigger line:** {row.trigger_line}")
+
+    if isinstance(row.pyq_years, str) and row.pyq_years.strip():
+        st.markdown(f"**📅 PYQ Years:** {row.pyq_years}")
+
+    st.markdown("---")
+
+    # -------------------------
+    # DISPLAY
+    # -------------------------
     image_only = st.toggle("Image-only revision", value=False)
 
     if isinstance(card.image_paths, str) and card.image_paths.strip():
@@ -114,18 +131,25 @@ def render_revision_engine():
     # -------------------------
     col1, col2 = st.columns(2)
 
+    today = date.today()
+
     with col1:
         if st.button("✅ Revised"):
             new_revision_count = int(row.revision_count) + 1
             new_fail_count = max(int(row.fail_count) - 1, 0)
             next_date = data_layer.compute_next_revision(new_revision_count)
 
-            pyqs.loc[pyqs.id == row.id, "revision_count"] = new_revision_count
-            pyqs.loc[pyqs.id == row.id, "fail_count"] = new_fail_count
-            pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
-            pyqs.loc[pyqs.id == row.id, "next_revision_date"] = next_date
+            base_pyqs.loc[base_pyqs.id == row.id, "revision_count"] = new_revision_count
+            base_pyqs.loc[base_pyqs.id == row.id, "fail_count"] = new_fail_count
+            base_pyqs.loc[base_pyqs.id == row.id, "last_revised"] = today
+            base_pyqs.loc[base_pyqs.id == row.id, "next_revision_date"] = next_date
 
-            data_layer.save_pyqs(pyqs)
+            data_layer.save_pyqs(base_pyqs)
+
+            # ---- streak handling ----
+            if st.session_state.last_revision_date != today:
+                st.session_state.revision_streak += 1
+                st.session_state.last_revision_date = today
 
             st.session_state.revised_today += 1
             st.rerun()
@@ -135,21 +159,16 @@ def render_revision_engine():
             new_fail_count = int(row.fail_count) + 1
             next_date = data_layer.compute_next_revision(int(row.revision_count))
 
-            pyqs.loc[pyqs.id == row.id, "fail_count"] = new_fail_count
-            pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
-            pyqs.loc[pyqs.id == row.id, "next_revision_date"] = next_date
+            base_pyqs.loc[base_pyqs.id == row.id, "fail_count"] = new_fail_count
+            base_pyqs.loc[base_pyqs.id == row.id, "last_revised"] = today
+            base_pyqs.loc[base_pyqs.id == row.id, "next_revision_date"] = next_date
 
-            data_layer.save_pyqs(pyqs)
+            data_layer.save_pyqs(base_pyqs)
             st.rerun()
 
     # -------------------------
-    # QUIET STREAK
+    # FOOTER INFO
     # -------------------------
-    today = date.today()
-    if st.session_state.last_revision_date != today:
-        st.session_state.revision_streak += 1
-        st.session_state.last_revision_date = today
-
     st.caption(f"Revision streak: {st.session_state.revision_streak} days")
 
     if st.session_state.get("revision_filter") == "weak":
