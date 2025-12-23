@@ -68,20 +68,36 @@ def render_rapid_review():
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
+    # =========================
+    # PYQ / CARD CONTENT DISPLAY
+    # =========================
+
+    # 1️⃣ PYQ IMAGES (NEW)
+    if "image_paths" in pyqs.columns:
+        pyq_images = pyqs.loc[pyqs.id == row.id,   "image_paths"].values
+        if len(pyq_images) and isinstance(pyq_images[0], str) and pyq_images[0].strip():
+            st.markdown("#### 🖼️ PYQ Images")
+            for p in pyq_images[0].split(";"):
+                st.image(p)
+
+    # 2️⃣ STUDY CARD CONTENT (EXISTING)
     card_df = cards[cards.topic_id == row.id]
 
     if not card_df.empty:
         card = card_df.iloc[0]
 
         if isinstance(card.image_paths, str) and card.image_paths.strip():
+            st.markdown("#### 🖼️ Study Card Images")
             for p in card.image_paths.split(";"):
                 st.image(p)
 
         for line in card.bullets.splitlines():
             st.write(line)
-    else:
+
+    # 3️⃣ FALLBACK — TRIGGER LINE
+    elif row.trigger_line:
         st.info("No study card yet for this topic.")
-        st.markdown(f"**Trigger line:** {row.trigger_line}")
+        st.markdown(f"**Trigger line:**     {row.trigger_line}")
 
     col1, col2 = st.columns(2)
 
