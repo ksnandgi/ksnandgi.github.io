@@ -91,7 +91,7 @@ def render_pyq_capture():
 
         submitted = st.form_submit_button("Save PYQ")
 
-    # ---- AFTER SUBMIT ----
+    # ---- HANDLE SUBMIT ----
     if submitted:
         if not topic.strip():
             st.error("Topic is required.")
@@ -99,7 +99,7 @@ def render_pyq_capture():
 
         pyqs = data_layer.load_pyqs()
 
-        # ---- SOFT DUPLICATE GUARD ----
+        # Soft duplicate guard
         if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
             st.warning("A PYQ with this topic already exists.")
             return
@@ -115,28 +115,42 @@ def render_pyq_capture():
         pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
         data_layer.save_pyqs(pyqs)
 
+        # 🔑 Persist last added PYQ for next action
+        st.session_state.last_added_pyq = row
+
         st.success("✅ PYQ added successfully.")
 
+    # =========================
+    # POST-SAVE ACTIONS (STABLE)
+    # =========================
+    if st.session_state.get("last_added_pyq"):
         st.markdown("---")
 
-        # 🔑 AUTO STUDY CARD BUTTON (FIXED)
         if st.button("🧠 Create Study Card (Auto Draft)"):
+            last = st.session_state.last_added_pyq
+
             st.session_state.auto_card_draft = generate_study_card_draft(
-                topic=row["topic"],
-                subject=row["subject"],
-                trigger=row["trigger_line"]
+                topic=last["topic"],
+                subject=last["subject"],
+                trigger=last["trigger_line"]
             )
-            st.session_state.auto_card_topic_id = row["id"]  # 🔑 CRITICAL
+            st.session_state.auto_card_topic_id = last["id"]
+
             st.session_state.current_view = "study_cards"
             st.session_state.app_mode = "Build"
+
+            # Cleanup to avoid repeat
+            st.session_state.pop("last_added_pyq", None)
+
             st.rerun()
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.info("Form cleared. You can add another PYQ.")
+            st.info("You can add another PYQ or proceed to Study Card creation.")
 
         with col2:
             if st.button("🏠 Back to Dashboard"):
+                st.session_state.pop("last_added_pyq", None)
                 st.session_state.current_view = "dashboard"
                 st.rerun()
