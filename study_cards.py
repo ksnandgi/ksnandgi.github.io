@@ -9,7 +9,7 @@ import re
 import data_layer
 
 # =========================
-# AUTO CARD GENERATOR (MANUAL)
+# AUTO CARD GENERATOR (MANUAL NOTES)
 # =========================
 
 def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
@@ -26,12 +26,54 @@ def auto_generate_bullets(text: str, max_bullets: int = 5) -> str:
 
 
 # =========================
+# SUBJECT-BASED STRUCTURE
+# =========================
+
+CARD_TEMPLATES = {
+    "Medicine": [
+        "Definition",
+        "Etiology / Causes",
+        "Clinical features",
+        "Complications",
+        "Management"
+    ],
+    "Surgery": [
+        "Definition",
+        "Etiology",
+        "Clinical features",
+        "Indications for surgery",
+        "Complications"
+    ],
+    "Pharmacology": [
+        "Drug class",
+        "Mechanism of action",
+        "Uses",
+        "Adverse effects",
+        "Contraindications"
+    ],
+    "Anatomy": [
+        "Definition / Location",
+        "Relations",
+        "Blood supply",
+        "Nerve supply",
+        "Clinical significance"
+    ],
+}
+
+def generate_structured_template(topic: str, subject: str) -> str:
+    template = CARD_TEMPLATES.get(
+        subject,
+        ["Definition", "Key points", "Clinical relevance"]
+    )
+    return "\n".join(f"• {section}:" for section in template)
+
+
+# =========================
 # IMAGE HANDLING
 # =========================
 
 def save_uploaded_images(files, topic_id: int) -> list[str]:
     paths = []
-
     data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
     for f in files:
@@ -55,7 +97,6 @@ def render_study_cards():
     # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.session_state.edit_card = False
-        st.session_state.force_edit = False
         return
 
     st.subheader("🗂️ Study Cards")
@@ -68,7 +109,7 @@ def render_study_cards():
         return
 
     # =========================
-    # SEARCH
+    # 🔍 SEARCH
     # =========================
     st.markdown("### 🔍 Find Topic")
 
@@ -88,27 +129,25 @@ def render_study_cards():
 
     filtered = filtered.copy()
     filtered["label"] = filtered["topic"] + " (" + filtered["subject"] + ")"
-
-    labels = filtered["label"].tolist()
-    ids = filtered["id"].tolist()
+    topic_map = dict(zip(filtered["label"], filtered["id"]))
 
     # =========================
-    # AUTO SELECT FROM PYQ → STUDY CARD
+    # AUTO-SELECT FROM PYQ → STUDY CARD
     # =========================
     auto_topic_id = st.session_state.get("auto_card_topic_id")
 
-    if auto_topic_id in ids:
-        default_index = ids.index(auto_topic_id)
+    if auto_topic_id and auto_topic_id in filtered["id"].values:
+        selected_label = filtered.loc[
+            filtered.id == auto_topic_id, "label"
+        ].iloc[0]
+        st.session_state.pop("auto_card_topic_id", None)
     else:
-        default_index = 0
+        selected_label = st.selectbox(
+            "Select Topic",
+            list(topic_map.keys())
+        )
 
-    selected_label = st.selectbox(
-        "Select Topic",
-        labels,
-        index=default_index
-    )
-
-    topic_id = ids[labels.index(selected_label)]
+    topic_id = topic_map[selected_label]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
     card_df = cards[cards.topic_id == topic_id]
 
@@ -116,13 +155,9 @@ def render_study_cards():
     st.markdown("---")
 
     # =========================
-    # PREVIEW MODE
+    # 📄 PREVIEW MODE
     # =========================
-    if (
-        not card_df.empty
-        and not st.session_state.get("edit_card", False)
-        and not st.session_state.get("force_edit", False)
-    ):
+    if not card_df.empty and not st.session_state.get("edit_card", False):
         card = card_df.iloc[0]
 
         st.markdown("### 📄 Study Card Preview")
@@ -145,51 +180,65 @@ def render_study_cards():
         with col1:
             if st.button("✏️ Edit Card"):
                 st.session_state.edit_card = True
-                st.session_state.force_edit = False
                 st.rerun()
 
         with col2:
             if st.button("🗑️ Delete Card", type="secondary"):
                 data_layer.delete_card(topic_id)
                 st.session_state.edit_card = False
-                st.session_state.force_edit = False
                 st.rerun()
 
         with col3:
             if st.button("← Back"):
-                st.session_state.force_edit = True
+                st.session_state.edit_card = False
+                st.session_state.current_view = "dashboard"
                 st.rerun()
 
         return
 
     # =========================
-    # CREATE / EDIT MODE
+    # ✍️ CREATE / EDIT MODE
     # =========================
     st.markdown("### 🧠 Key Points")
 
-    # 🔑 BULLET PRIORITY (CRITICAL FIX)
-    if "draft_bullets" in st.session_state:
-        default_bullets = st.session_state.draft_bullets
-    elif "auto_card_draft" in st.session_state:
+    # -------- BULLET SOURCE PRIORITY --------
+    if st.session_state.get("auto_card_draft"):
         default_bullets = st.session_state.auto_card_draft
     elif not card_df.empty:
         default_bullets = card_df.iloc[0].bullets
     else:
         default_bullets = ""
 
-    bullets = st.text_area(
-        "One concept per line",
-        value=default_bullets,
-        height=180
-    )
+    # -------- UX HINT --------
+    if not default_bullets:
+        st.info(
+            "💡 Tip: Click **Generate Structured Draft** to get an exam-oriented template."
+        )
 
-    # Auto-draft from notes
-    with st.expander("✍️ Auto Draft from Notes"):
+    # -------- STRUCTURED TEMPLATE BUTTON --------
+    if st.button("🧠 Generate Structured Draft"):
+        st.session_state.auto_card_draft = generate_structured_template(
+            topic=topic_row.topic,
+            subject=topic_row.subject
+        )
+        st.rerun()
+
+    # -------- AUTO DRAFT FROM NOTES --------
+    with st.expander("✍️ Auto Draft from Notes (Optional)"):
         raw_text = st.text_area("Paste textbook / notes", height=150)
-        if st.button("Generate Draft") and raw_text.strip():
-            st.session_state.draft_bullets = auto_generate_bullets(raw_text)
+        if st.button("Generate from Notes") and raw_text.strip():
+            st.session_state["draft_bullets"] = auto_generate_bullets(raw_text)
             st.rerun()
 
+    bullets = st.text_area(
+        "One concept per line",
+        value=st.session_state.get("draft_bullets", default_bullets),
+        height=200
+    )
+
+    # =========================
+    # 🖼️ IMAGES
+    # =========================
     st.markdown("### 🖼️ Images (Optional)")
 
     images = st.file_uploader(
@@ -200,6 +249,9 @@ def render_study_cards():
 
     st.markdown("---")
 
+    # =========================
+    # ACTIONS
+    # =========================
     col1, col2 = st.columns(2)
 
     with col1:
@@ -219,13 +271,12 @@ def render_study_cards():
                 external_url=""
             )
 
-            # 🔑 CLEANUP STATE
+            # 🔑 CLEAR STATES
             st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
-            st.session_state.pop("auto_card_topic_id", None)
             st.session_state.edit_card = False
-            st.session_state.force_edit = False
 
+            st.success("Study card saved.")
             st.rerun()
 
     with col2:
@@ -233,5 +284,5 @@ def render_study_cards():
             st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
             st.session_state.edit_card = False
-            st.session_state.force_edit = False
+            st.session_state.current_view = "dashboard"
             st.rerun()
