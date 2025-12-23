@@ -46,13 +46,14 @@ def render_rapid_review():
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
+    # ---- Candidate selection (safe for missing columns) ----
     candidates = pyqs[
-    (
-        (pyqs.get("revision_count", 0) == 0)
-        | (pyqs.get("fail_count", 0) > 0)
-        | (data_layer.is_due(pyqs))
-    )
-]
+        (
+            (pyqs.get("revision_count", 0) == 0)
+            | (pyqs.get("fail_count", 0) > 0)
+            | (data_layer.is_due(pyqs))
+        )
+    ]
 
     if candidates.empty:
         st.info("No topics available for rapid review.")
@@ -69,42 +70,39 @@ def render_rapid_review():
     st.caption(row.subject)
 
     # =========================
-    # PYQ / CARD CONTENT DISPLAY
+    # CONTENT DISPLAY PRIORITY
     # =========================
 
-    # 1️⃣ PYQ IMAGES (NEW)
-    if "image_paths" in pyqs.columns:
-        pyq_images = pyqs.loc[pyqs.id == row.id,   "image_paths"].values
-        if len(pyq_images) and isinstance(pyq_images[0], str) and pyq_images[0].strip():
-            st.markdown("#### 🖼️ PYQ Images")
-            for p in pyq_images[0].split(";"):
-                st.image(p)
-
-    # 2️⃣ STUDY CARD CONTENT (EXISTING)
     card_df = cards[cards.topic_id == row.id]
 
+    # 1️⃣ STUDY CARD (highest priority)
     if not card_df.empty:
         card = card_df.iloc[0]
 
         if isinstance(card.image_paths, str) and card.image_paths.strip():
             st.markdown("#### 🖼️ Study Card Images")
             for p in card.image_paths.split(";"):
-                
-        # =========================
-        # 🔑 FALLBACK: PYQ IMAGES
-        # =========================
-        elif isinstance(row.pyq_image_paths, str) and row.pyq_image_paths.strip():
-            st.markdown("#### 🖼️ PYQ Image")
-            for p in row.pyq_image_paths.split(";"):
-               st.image(p)
+                st.image(p)
 
         for line in card.bullets.splitlines():
             st.write(line)
 
-    # 3️⃣ FALLBACK — TRIGGER LINE
+    # 2️⃣ PYQ IMAGES (fallback)
+    elif "pyq_image_paths" in pyqs.columns:
+        pyq_img = pyqs.loc[pyqs.id == row.id, "pyq_image_paths"].values
+        if len(pyq_img) and isinstance(pyq_img[0], str) and pyq_img[0].strip():
+            st.markdown("#### 🖼️ PYQ Image")
+            for p in pyq_img[0].split(";"):
+                st.image(p)
+
+    # 3️⃣ TRIGGER LINE (last fallback)
     elif row.trigger_line:
         st.info("No study card yet for this topic.")
-        st.markdown(f"**Trigger line:**     {row.trigger_line}")
+        st.markdown(f"**Trigger line:** {row.trigger_line}")
+
+    # =========================
+    # ACTIONS
+    # =========================
 
     col1, col2 = st.columns(2)
 
