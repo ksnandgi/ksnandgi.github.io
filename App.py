@@ -14,7 +14,6 @@ import time
 # =========================
 st.session_state.setdefault("app_mode", "Study")
 st.session_state.setdefault("current_view", "dashboard")
-st.session_state.setdefault("focus_mode", False)
 
 # =========================
 # GLOBAL MODE BAR
@@ -93,7 +92,6 @@ st.markdown("### 📘 NEET PG Study System")
 
 if (
     st.session_state.current_view not in ["backup", "restore"]
-    and not st.session_state.get("focus_mode", False)
 ):
     render_mode_bar()
 
