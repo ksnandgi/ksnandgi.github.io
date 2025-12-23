@@ -61,11 +61,30 @@ CARD_TEMPLATES = {
 }
 
 def generate_structured_template(topic: str, subject: str) -> str:
+    subject = topic_row.subject
+    trigger = topic_row.trigger_line or""
+    years = topic_row.pyq_years or""
+    
     template = CARD_TEMPLATES.get(
         subject,
         ["Definition", "Key points", "Clinical relevance"]
     )
-    return "\n".join(f"• {section}:" for section in template)
+
+    bullet = []
+
+    bullets.append(f".Definition: {topic_row.topic}")
+
+    if trigger:
+        bullets.append(f".Exam trigger: {trigger}")
+
+    if years:
+        bullets.append(f".PYQ years: {years}")
+
+    for section in template:
+        if section not in ["Definition"]:
+            bullets.append(f".{section}:")
+            
+    return "\n".join(bullets)
 
 
 # =========================
@@ -217,10 +236,7 @@ def render_study_cards():
 
     # -------- STRUCTURED TEMPLATE BUTTON --------
     if st.button("🧠 Generate Structured Draft"):
-        st.session_state.auto_card_draft = generate_structured_template(
-            topic=topic_row.topic,
-            subject=topic_row.subject
-        )
+        st.session_state.auto_card_draft = generate_structured_template(topic_row)
         st.rerun()
 
     # -------- AUTO DRAFT FROM NOTES --------
