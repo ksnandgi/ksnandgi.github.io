@@ -118,6 +118,10 @@ def render_study_cards():
         st.info("No PYQ topics found yet.")
         return
 
+    # 🔑 FORCE EDIT MODE IF AUTO DRAFT EXISTS
+    if st.session_state.get("auto_card_draft"):
+        st.session_state.edit_card = True
+
     # -------------------------
     # SEARCH
     # -------------------------
@@ -166,7 +170,7 @@ def render_study_cards():
     # -------------------------
     # PREVIEW MODE
     # -------------------------
-    if not card_df.empty and not st.session_state.get("edit_card", False):
+    if not card_df.empty and not st.session_state.edit_card:
         card = card_df.iloc[0]
 
         st.markdown("### 📄 Study Card Preview")
@@ -208,7 +212,6 @@ def render_study_cards():
     # -------------------------
     st.markdown("### 🧠 Key Points")
 
-    # 🔑 Priority order (critical)
     if st.session_state.get("auto_card_draft"):
         default_bullets = st.session_state.auto_card_draft
     elif not card_df.empty:
