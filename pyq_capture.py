@@ -155,7 +155,7 @@ def render_pyq_capture():
         st.session_state.current_view = "study_cards"
         st.session_state.app_mode = "Build"
         st.rerun()
-        st.stop()   # 🔑 ABSOLUTELY REQUIRED
+        
 
     if st.button("🏠 Back to Dashboard"):
         st.session_state.current_view = "dashboard"
