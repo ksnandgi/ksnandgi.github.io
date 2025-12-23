@@ -22,6 +22,7 @@ def init_exam_state():
     st.session_state.setdefault("sprint_index", 0)
     st.session_state.setdefault("last_sprint_subject", None)
 
+
 # =========================
 # RAPID REVIEW MODE
 # =========================
@@ -70,8 +71,20 @@ def render_rapid_review():
 
     row = candidates.iloc[0]
 
+    # =========================
+    # HEADER
+    # =========================
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
+
+    # =========================
+    # PYQ META (ALWAYS SHOWN)
+    # =========================
+    if isinstance(row.trigger_line, str) and row.trigger_line.strip():
+        st.markdown(f"**Trigger line:** {row.trigger_line}")
+
+    if isinstance(row.pyq_years, str) and row.pyq_years.strip():
+        st.markdown(f"**PYQ Years:** {row.pyq_years}")
 
     content_shown = False
 
@@ -83,7 +96,6 @@ def render_rapid_review():
     if not card_df.empty:
         card = card_df.iloc[0]
 
-        # Images first (important for image-based recall)
         if isinstance(card.image_paths, str) and card.image_paths.strip():
             st.markdown("#### 🖼️ Study Card Images")
             for p in card.image_paths.split(";"):
@@ -110,16 +122,8 @@ def render_rapid_review():
             st.image(p)
         content_shown = True
 
-    # =========================
-    # TRIGGER LINE (LAST FALLBACK)
-    # =========================
-    if not content_shown and isinstance(row.trigger_line, str) and row.trigger_line.strip():
-        st.info("No study card yet for this topic.")
-        st.markdown(f"**Trigger line:** {row.trigger_line}")
-        content_shown = True
-
     if not content_shown:
-        st.warning("No content available for this topic yet.")
+        st.warning("No study card or images available for this topic yet.")
 
     # =========================
     # ACTIONS
@@ -143,6 +147,7 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
             data_layer.save_pyqs(pyqs)
             st.rerun()
+
 
 # =========================
 # IMAGE SPRINT MODE
@@ -204,6 +209,7 @@ def render_image_sprint():
             time.sleep(delay)
             st.session_state.sprint_index += 1
             st.rerun()
+
 
 # =========================
 # MAIN ENTRY
