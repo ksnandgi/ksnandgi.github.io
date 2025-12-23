@@ -65,18 +65,23 @@ def load_csv(path: Path, columns: list, date_cols: list | None = None) -> pd.Dat
     else:
         df = pd.DataFrame(columns=columns)
 
+    # Ensure all columns exist
     for col in columns:
         if col not in df.columns:
             df[col] = None
 
+    # Date coercion
     if date_cols:
         for col in date_cols:
             df[col] = pd.to_datetime(df[col], errors="coerce")
 
-    return df[columns]
+    # 🔑 Always return a safe copy
+    return df[columns].copy()
 
 
-def save_csv(df: pd.DataFrame, path: Path) -> None:
+def save_csv(df: pd.DataFrame, path: Path, columns: list | None = None) -> None:
+    if columns:
+        df = df.reindex(columns=columns)
     df.to_csv(path, index=False)
 
 # =========================
@@ -109,40 +114,37 @@ def is_due(df: pd.DataFrame) -> pd.Series:
 def load_pyqs() -> pd.DataFrame:
     df = load_csv(PYQ_FILE, PYQ_COLUMNS, DATE_COLUMNS_PYQ)
 
-    # =========================
-    # 🔧 SCHEMA HEALING (CRITICAL)
-    # =========================
+    # -------------------------
+    # SCHEMA HEALING
+    # -------------------------
 
-    # Corrupted merged column
     if "pyq_image_pathsrevision_count" in df.columns:
         df["pyq_image_paths"] = df["pyq_image_pathsrevision_count"]
         df["revision_count"] = 0
         df = df.drop(columns=["pyq_image_pathsrevision_count"])
 
-    if "pyq_image_paths" not in df.columns:
-        df["pyq_image_paths"] = ""
+    # Mandatory columns
+    for col, default in {
+        "pyq_image_paths": "",
+        "revision_count": 0,
+        "fail_count": 0,
+        "trigger_line": "",
+        "pyq_years": "",
+    }.items():
+        if col not in df.columns:
+            df[col] = default
 
-    if "revision_count" not in df.columns:
-        df["revision_count"] = 0
-
-    if "fail_count" not in df.columns:
-        df["fail_count"] = 0
-
-    if "trigger_line" not in df.columns:
-        df["trigger_line"] = ""
-
-    if "pyq_years" not in df.columns:
-        df["pyq_years"] = ""
-
-    # =========================
-    # 🔑 TEXT FIELD BACKFILL (FINAL FIX)
-    # =========================
+    # Text normalization
     df["trigger_line"] = df["trigger_line"].fillna("").astype(str)
     df["pyq_years"] = df["pyq_years"].fillna("").astype(str)
+    df["pyq_image_paths"] = df["pyq_image_paths"].fillna("").astype(str)
 
     # Numeric safety
     df["revision_count"] = df["revision_count"].fillna(0).astype(int)
     df["fail_count"] = df["fail_count"].fillna(0).astype(int)
+
+    # 🔑 Ensure next_revision_date exists
+    df["next_revision_date"] = df["next_revision_date"].fillna(pd.Timestamp.now())
 
     return df
 
@@ -152,11 +154,11 @@ def load_cards() -> pd.DataFrame:
 
 
 def save_pyqs(df: pd.DataFrame) -> None:
-    save_csv(df, PYQ_FILE)
+    save_csv(df, PYQ_FILE, PYQ_COLUMNS)
 
 
 def save_cards(df: pd.DataFrame) -> None:
-    save_csv(df, CARD_FILE)
+    save_csv(df, CARD_FILE, CARD_COLUMNS)
 
 # =========================
 # INVARIANTS
@@ -169,7 +171,12 @@ def card_exists_for_topic(cards_df: pd.DataFrame, topic_id: int) -> bool:
 # FACTORIES
 # =========================
 
-def new_pyq_row(topic: str, subject: str, trigger_line: str, pyq_years: str | None = None) -> dict:
+def new_pyq_row(
+    topic: str,
+    subject: str,
+    trigger_line: str,
+    pyq_years: str | None = None
+) -> dict:
     return {
         "id": None,
         "topic": topic.strip(),
@@ -186,8 +193,13 @@ def new_pyq_row(topic: str, subject: str, trigger_line: str, pyq_years: str | No
     }
 
 
-def new_card_row(topic_id: int, bullets: str, card_title: str | None = None,
-                 external_url: str | None = None, image_paths: list[str] | None = None) -> dict:
+def new_card_row(
+    topic_id: int,
+    bullets: str,
+    card_title: str | None = None,
+    external_url: str | None = None,
+    image_paths: list[str] | None = None
+) -> dict:
     return {
         "card_id": None,
         "topic_id": topic_id,
@@ -236,14 +248,20 @@ def restore_full_backup(uploaded_file):
 # CARD UPSERT / DELETE
 # =========================
 
-def upsert_card(topic_id: int, card_title: str, bullets: str,
-                image_paths: str = "", external_url: str = ""):
+def upsert_card(
+    topic_id: int,
+    card_title: str,
+    bullets: str,
+    image_paths: str = "",
+    external_url: str = ""
+):
     cards = load_cards()
 
     if not cards[cards.topic_id == topic_id].empty:
-        cards.loc[cards.topic_id == topic_id,
-                  ["card_title", "bullets", "image_paths", "external_url"]] = \
-            [card_title, bullets, image_paths, external_url]
+        cards.loc[
+            cards.topic_id == topic_id,
+            ["card_title", "bullets", "image_paths", "external_url"]
+        ] = [card_title, bullets, image_paths, external_url]
     else:
         new_row = {
             "card_id": safe_next_id(cards["card_id"]),
