@@ -55,6 +55,7 @@ def render_study_cards():
     # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.session_state.edit_card = False
+        st.session_state.force_edit = False
         return
 
     st.subheader("🗂️ Study Cards")
@@ -92,13 +93,12 @@ def render_study_cards():
     ids = filtered["id"].tolist()
 
     # =========================
-    # AUTO-SELECT FROM PYQ → STUDY CARD
+    # AUTO SELECT FROM PYQ → STUDY CARD
     # =========================
     auto_topic_id = st.session_state.get("auto_card_topic_id")
 
     if auto_topic_id in ids:
         default_index = ids.index(auto_topic_id)
-        st.session_state.pop("auto_card_topic_id", None)
     else:
         default_index = 0
 
@@ -118,7 +118,11 @@ def render_study_cards():
     # =========================
     # PREVIEW MODE
     # =========================
-    if not card_df.empty and not st.session_state.get("edit_card", False):
+    if (
+        not card_df.empty
+        and not st.session_state.get("edit_card", False)
+        and not st.session_state.get("force_edit", False)
+    ):
         card = card_df.iloc[0]
 
         st.markdown("### 📄 Study Card Preview")
@@ -141,17 +145,19 @@ def render_study_cards():
         with col1:
             if st.button("✏️ Edit Card"):
                 st.session_state.edit_card = True
+                st.session_state.force_edit = False
                 st.rerun()
 
         with col2:
             if st.button("🗑️ Delete Card", type="secondary"):
                 data_layer.delete_card(topic_id)
                 st.session_state.edit_card = False
+                st.session_state.force_edit = False
                 st.rerun()
 
         with col3:
             if st.button("← Back"):
-                st.session_state.edit_card = False
+                st.session_state.force_edit = True
                 st.rerun()
 
         return
@@ -161,23 +167,28 @@ def render_study_cards():
     # =========================
     st.markdown("### 🧠 Key Points")
 
-    if st.session_state.get("auto_card_draft"):
+    # 🔑 BULLET PRIORITY (CRITICAL FIX)
+    if "draft_bullets" in st.session_state:
+        default_bullets = st.session_state.draft_bullets
+    elif "auto_card_draft" in st.session_state:
         default_bullets = st.session_state.auto_card_draft
     elif not card_df.empty:
         default_bullets = card_df.iloc[0].bullets
     else:
         default_bullets = ""
 
-    with st.expander("✍️ Auto Draft (Optional)"):
-        raw_text = st.text_area("Paste textbook / notes", height=150)
-        if st.button("Generate Draft") and raw_text.strip():
-            st.session_state["draft_bullets"] = auto_generate_bullets(raw_text)
-
     bullets = st.text_area(
         "One concept per line",
-        value=st.session_state.get("draft_bullets", default_bullets),
+        value=default_bullets,
         height=180
     )
+
+    # Auto-draft from notes
+    with st.expander("✍️ Auto Draft from Notes"):
+        raw_text = st.text_area("Paste textbook / notes", height=150)
+        if st.button("Generate Draft") and raw_text.strip():
+            st.session_state.draft_bullets = auto_generate_bullets(raw_text)
+            st.rerun()
 
     st.markdown("### 🖼️ Images (Optional)")
 
@@ -208,10 +219,12 @@ def render_study_cards():
                 external_url=""
             )
 
-            # Clean transient state
+            # 🔑 CLEANUP STATE
             st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
+            st.session_state.pop("auto_card_topic_id", None)
             st.session_state.edit_card = False
+            st.session_state.force_edit = False
 
             st.rerun()
 
@@ -220,4 +233,5 @@ def render_study_cards():
             st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
             st.session_state.edit_card = False
+            st.session_state.force_edit = False
             st.rerun()
