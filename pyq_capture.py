@@ -121,6 +121,8 @@ def render_pyq_capture():
                     out.write(f.getbuffer())
                 image_paths.append(str(path))
 
+        new_id = data_layer.safe_next_id(pyqs["id"])
+
         image_paths = save_uploaded_pyq_images(images, new_id) if images else []
 
         row = data_layer.new_pyq_row(
