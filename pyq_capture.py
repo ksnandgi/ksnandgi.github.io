@@ -79,7 +79,6 @@ def render_pyq_capture():
 
     st.subheader("➕ Add PYQ")
 
-    # 🔑 ALWAYS INITIALIZE
     image_paths: list[str] = []
 
     # ---- PYQ FORM ----
@@ -106,20 +105,17 @@ def render_pyq_capture():
 
     pyqs = data_layer.load_pyqs()
 
-    # ---- SCHEMA GUARANTEE ----
     if "pyq_image_paths" not in pyqs.columns:
         pyqs["pyq_image_paths"] = ""
 
-    # ---- SOFT DUPLICATE GUARD ----
+    # ---- DUPLICATE GUARD ----
     if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
         st.warning("A PYQ with this topic already exists.")
         return
 
     new_id = data_layer.safe_next_id(pyqs["id"])
 
-    # =========================
-    # SAVE PYQ IMAGES
-    # =========================
+    # ---- SAVE PYQ IMAGES ----
     if pyq_images:
         data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
         for f in pyq_images:
@@ -128,9 +124,7 @@ def render_pyq_capture():
                 out.write(f.getbuffer())
             image_paths.append(str(path))
 
-    # =========================
-    # CREATE PYQ ROW
-    # =========================
+    # ---- CREATE PYQ ROW ----
     row = data_layer.new_pyq_row(
         topic=topic.strip(),
         subject=subject,
@@ -140,12 +134,10 @@ def render_pyq_capture():
 
     row["id"] = new_id
     row["pyq_image_paths"] = ";".join(image_paths)
-    row["pyq_years"] = years.strip()   # 🔑 CRITICAL FIX
+    row["pyq_years"] = years.strip()
 
     pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
     data_layer.save_pyqs(pyqs)
-
-    st.session_state.last_added_pyq = row
 
     st.success("✅ PYQ added successfully.")
     st.markdown("---")
@@ -162,11 +154,9 @@ def render_pyq_capture():
         st.session_state.auto_card_topic_id = row["id"]
         st.session_state.current_view = "study_cards"
         st.session_state.app_mode = "Build"
-        st.session_state.pop("last_added_pyq", None)
         st.rerun()
-        st.stop()
+        st.stop()   # 🔑 ABSOLUTELY REQUIRED
 
     if st.button("🏠 Back to Dashboard"):
-        st.session_state.pop("last_added_pyq", None)
         st.session_state.current_view = "dashboard"
         st.rerun()
