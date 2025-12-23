@@ -132,7 +132,7 @@ def render_pyq_capture():
             pyq_years=years
         )
 
-
+        row["id"] = new_id
         row["pyq_image_paths"] = ";".join(image_paths)
 
         row["id"] = data_layer.safe_next_id(pyqs["id"])
