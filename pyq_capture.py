@@ -92,67 +92,73 @@ def render_pyq_capture():
 
         submitted = st.form_submit_button("Save PYQ")
 
-    if submitted:
-        if not topic.strip():
-            st.error("Topic is required.")
-            return
+    if not submitted:
+        return
 
-        pyqs = data_layer.load_pyqs()
+    if not topic.strip():
+        st.error("Topic is required.")
+        return
 
-        # 🔑 ENSURE IMAGE COLUMN EXISTS (CRITICAL FIX)
-        if "pyq_image_paths" not in pyqs.columns:
-            pyqs["pyq_image_paths"] = ""
+    pyqs = data_layer.load_pyqs()
 
-        if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
-            st.warning("A PYQ with this topic already exists.")
-            return
+    # 🔑 Ensure column exists (schema healing)
+    if "pyq_image_paths" not in pyqs.columns:
+        pyqs["pyq_image_paths"] = ""
 
-        new_id = data_layer.safe_next_id(pyqs["id"])
+    # Soft duplicate guard
+    if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
+        st.warning("A PYQ with this topic already exists.")
+        return
 
-        image_paths = []
-        if pyq_images:
-            data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
-            for f in pyq_images:
-                path = data_layer.IMAGE_DIR / f"pyq_{new_id}_{f.name}"
-                with open(path, "wb") as out:
-                    out.write(f.getbuffer())
-                image_paths.append(str(path))
+    new_id = data_layer.safe_next_id(pyqs["id"])
 
-        row = data_layer.new_pyq_row(
-            topic=topic.strip(),
-            subject=subject,
-            trigger_line=trigger.strip(),
-            pyq_years=years.strip()
+    # =========================
+    # SAVE PYQ IMAGES (FIXED)
+    # =========================
+    image_paths = []
+
+    if pyq_images:
+        data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+        for f in pyq_images:
+            path = data_layer.IMAGE_DIR / f"pyq_{new_id}_{f.name}"
+            with open(path, "wb") as out:
+                out.write(f.getbuffer())
+            image_paths.append(str(path))
+
+    row = data_layer.new_pyq_row(
+        topic=topic.strip(),
+        subject=subject,
+        trigger_line=trigger.strip(),
+        pyq_years=years.strip()
+    )
+
+    row["id"] = new_id
+    row["pyq_image_paths"] = ";".join(image_paths)
+
+    pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
+    data_layer.save_pyqs(pyqs)
+
+    st.session_state.last_added_pyq = row
+    st.success("✅ PYQ added successfully.")
+
+    # =========================
+    # POST-SAVE ACTIONS
+    # =========================
+    st.markdown("---")
+
+    if st.button("🧠 Create Study Card (Auto Draft)"):
+        st.session_state.auto_card_draft = generate_study_card_draft(
+            topic=row["topic"],
+            subject=row["subject"],
+            trigger=row["trigger_line"]
         )
+        st.session_state.auto_card_topic_id = row["id"]
+        st.session_state.current_view = "study_cards"
+        st.session_state.app_mode = "Build"
+        st.session_state.pop("last_added_pyq", None)
+        st.rerun()
 
-        row["id"] = new_id
-        row["pyq_image_paths"] = ";".join(image_paths)
-
-        pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
-        data_layer.save_pyqs(pyqs)
-
-        st.session_state.last_added_pyq = row
-        st.success("✅ PYQ added successfully.")
-
-    if st.session_state.get("last_added_pyq"):
-        st.markdown("---")
-
-        if st.button("🧠 Create Study Card (Auto Draft)"):
-            last = st.session_state.last_added_pyq
-
-            st.session_state.auto_card_draft = generate_study_card_draft(
-                topic=last["topic"],
-                subject=last["subject"],
-                trigger=last["trigger_line"]
-            )
-            st.session_state.auto_card_topic_id = last["id"]
-
-            st.session_state.current_view = "study_cards"
-            st.session_state.app_mode = "Build"
-            st.session_state.pop("last_added_pyq", None)
-            st.rerun()
-
-        if st.button("🏠 Back to Dashboard"):
-            st.session_state.pop("last_added_pyq", None)
-            st.session_state.current_view = "dashboard"
-            st.rerun()
+    if st.button("🏠 Back to Dashboard"):
+        st.session_state.pop("last_added_pyq", None)
+        st.session_state.current_view = "dashboard"
+        st.rerun()
