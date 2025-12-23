@@ -88,7 +88,6 @@ def render_dashboard():
 
         with col2:
             if st.button("⚠️ Weak Areas"):
-                st.session_state.app_mode = "Study"
                 st.session_state.current_view = "revision_weak"
                 st.rerun()
 
@@ -117,15 +116,13 @@ def render_dashboard():
 
         with col1:
             if st.button("➕ Add PYQ", use_container_width=True):
-               if st.session_state.current_view=="dashboard":
-                  st.session_state.current_view = "add_pyq"
-                  st.rerun()
+                st.session_state.current_view = "add_pyq"
+                st.rerun()
 
         with col2:
             if st.button("🗂️ Create / Update Study Card", use_container_width=True):
-                if st.session_state.current_view=="dashboard":
-                   st.session_state.current_view = "study_cards"
-                   st.rerun()
+                st.session_state.current_view = "study_cards"
+                st.rerun()
 
         st.markdown("---")
 
