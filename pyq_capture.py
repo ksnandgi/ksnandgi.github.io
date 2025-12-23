@@ -11,7 +11,7 @@ SUBJECTS = [
     "Medicine", "Surgery", "ObG", "Pediatrics",
     "Pathology", "Pharmacology", "Microbiology",
     "PSM", "Anatomy", "Physiology", "Biochemistry",
-    "Radiology", "Dermatology"
+    "Radiology", "Dermatology", "Orthopaedics"
 ]
 
 # =========================
