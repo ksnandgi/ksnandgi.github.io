@@ -121,12 +121,15 @@ def render_pyq_capture():
                     out.write(f.getbuffer())
                 image_paths.append(str(path))
 
+        image_paths = save_uploaded_pyq_images(images, new_id) if images else []
+
         row = data_layer.new_pyq_row(
-            topic=topic.strip(),
+            topic=topic,
             subject=subject,
-            trigger_line=trigger.strip(),
-            pyq_years=years.strip()
+            trigger_line=trigger,
+            pyq_years=years
         )
+
 
         row["pyq_image_paths"] = ";".join(image_paths)
 
