@@ -1,6 +1,10 @@
 import streamlit as st
 import time
 
+from datetime import datetime
+
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
 # =========================
 # APP CONFIG (MUST BE FIRST)
 # =========================
@@ -64,7 +68,7 @@ def render_backup_page():
     st.download_button(
         label="⬇️ Download Full Backup",
         data=buffer,
-        file_name="neet_pg_backup.zip",
+        filename = f"neet_pg_backup_{timestamp}.zip",
         mime="application/zip"
     )
 
