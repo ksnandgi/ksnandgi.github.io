@@ -56,7 +56,6 @@ def render_study_cards():
     # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.session_state.edit_card = False
-        st.session_state.focus_mode = False
         return
 
     st.subheader("🗂️ Study Cards")
@@ -152,7 +151,6 @@ def render_study_cards():
     # =========================
     # CREATE / EDIT MODE
     # =========================
-    st.session_state.focus_mode = True
 
     st.markdown("### 🧠 Key Points")
 
