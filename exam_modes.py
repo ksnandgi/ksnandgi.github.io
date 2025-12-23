@@ -32,24 +32,22 @@ def render_rapid_review():
 
     init_exam_state()
 
-    pyqs = data_layer.load_pyqs()
+    base_pyqs = data_layer.load_pyqs()
     cards = data_layer.load_cards()
 
-    if pyqs.empty:
+    if base_pyqs.empty:
         st.info("No PYQs available.")
         return
 
     # ---- Column safety ----
-    if "revision_count" not in pyqs.columns:
-        pyqs["revision_count"] = 0
-    if "fail_count" not in pyqs.columns:
-        pyqs["fail_count"] = 0
-    if "pyq_image_paths" not in pyqs.columns:
-        pyqs["pyq_image_paths"] = ""
+    for col in ["revision_count", "fail_count", "pyq_image_paths"]:
+        if col not in base_pyqs.columns:
+            base_pyqs[col] = "" if col == "pyq_image_paths" else 0
 
-    subjects = ["All"] + sorted(pyqs.subject.unique().tolist())
+    subjects = ["All"] + sorted(base_pyqs.subject.unique().tolist())
     subject = st.selectbox("Subject", subjects)
 
+    pyqs = base_pyqs
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
@@ -78,13 +76,17 @@ def render_rapid_review():
     st.caption(row.subject)
 
     # =========================
-    # PYQ META (ALWAYS SHOWN)
+    # PYQ META (ALWAYS VISIBLE)
     # =========================
+    st.markdown("---")
+
     if isinstance(row.trigger_line, str) and row.trigger_line.strip():
-        st.markdown(f"**Trigger line:** {row.trigger_line}")
+        st.markdown(f"**🧠 Trigger line:** {row.trigger_line}")
 
     if isinstance(row.pyq_years, str) and row.pyq_years.strip():
-        st.markdown(f"**PYQ Years:** {row.pyq_years}")
+        st.markdown(f"**📅 PYQ Years:** {row.pyq_years}")
+
+    st.markdown("---")
 
     content_shown = False
 
@@ -110,7 +112,9 @@ def render_rapid_review():
     # =========================
     # PYQ IMAGES (SECONDARY)
     # =========================
-    pyq_images = pyqs.loc[pyqs.id == row.id, "pyq_image_paths"].values
+    pyq_images = base_pyqs.loc[
+        base_pyqs.id == row.id, "pyq_image_paths"
+    ].values
 
     if (
         len(pyq_images) > 0
@@ -133,19 +137,24 @@ def render_rapid_review():
 
     with col1:
         if st.button("✅ Revised"):
-            pyqs.loc[pyqs.id == row.id, "revision_count"] += 1
-            pyqs.loc[pyqs.id == row.id, "fail_count"] = (
-                pyqs.loc[pyqs.id == row.id, "fail_count"].clip(lower=0)
+            base_pyqs.loc[base_pyqs.id == row.id, "revision_count"] += 1
+            base_pyqs.loc[base_pyqs.id == row.id, "fail_count"] = (
+                base_pyqs.loc[base_pyqs.id == row.id, "fail_count"].clip(lower=0)
             )
-            pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
-            data_layer.save_pyqs(pyqs)
+            base_pyqs.loc[base_pyqs.id == row.id, "last_revised"] = date.today()
+            base_pyqs.loc[
+                base_pyqs.id == row.id, "next_revision_date"
+            ] = data_layer.compute_next_revision(
+                base_pyqs.loc[base_pyqs.id == row.id, "revision_count"].values[0]
+            )
+            data_layer.save_pyqs(base_pyqs)
             st.rerun()
 
     with col2:
         if st.button("❌ Weak"):
-            pyqs.loc[pyqs.id == row.id, "fail_count"] += 1
-            pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
-            data_layer.save_pyqs(pyqs)
+            base_pyqs.loc[base_pyqs.id == row.id, "fail_count"] += 1
+            base_pyqs.loc[base_pyqs.id == row.id, "last_revised"] = date.today()
+            data_layer.save_pyqs(base_pyqs)
             st.rerun()
 
 
@@ -161,11 +170,14 @@ def render_image_sprint():
     pyqs = data_layer.load_pyqs()
     cards = data_layer.load_cards()
 
+    cards = cards[cards.image_paths.notna() & (cards.image_paths != "")]
     if cards.empty:
         st.info("No study cards with images available.")
         return
 
-    subjects = sorted(pyqs.subject.unique().tolist())
+    subjects = sorted(
+        pyqs[pyqs.id.isin(cards.topic_id)].subject.unique().tolist()
+    )
     subject = st.selectbox("Subject (mandatory)", subjects)
 
     topic_ids = pyqs[pyqs.subject == subject].id
@@ -193,9 +205,8 @@ def render_image_sprint():
 
     st.markdown(f"### {topic}")
 
-    if isinstance(card.image_paths, str) and card.image_paths.strip():
-        for p in card.image_paths.split(";"):
-            st.image(p)
+    for p in card.image_paths.split(";"):
+        st.image(p)
 
     col1, col2 = st.columns(2)
 
