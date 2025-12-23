@@ -89,7 +89,14 @@ def render_rapid_review():
         if isinstance(card.image_paths, str) and card.image_paths.strip():
             st.markdown("#### 🖼️ Study Card Images")
             for p in card.image_paths.split(";"):
-                st.image(p)
+                
+        # =========================
+        # 🔑 FALLBACK: PYQ IMAGES
+        # =========================
+        elif isinstance(row.pyq_image_paths, str) and row.pyq_image_paths.strip():
+            st.markdown("#### 🖼️ PYQ Image")
+            for p in row.pyq_image_paths.split(";"):
+               st.image(p)
 
         for line in card.bullets.splitlines():
             st.write(line)
