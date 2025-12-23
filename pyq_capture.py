@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-
 import data_layer
 
 # =========================
@@ -72,16 +71,19 @@ def generate_study_card_draft(topic: str, subject: str, trigger: str) -> str:
 # =========================
 
 def render_pyq_capture():
-    # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.info("Switch to 🛠️ Build Mode to add PYQs.")
         return
 
     st.subheader("➕ Add PYQ")
 
+    # Initialize storage
+    st.session_state.setdefault("last_added_pyq", None)
     image_paths: list[str] = []
 
-    # ---- PYQ FORM ----
+    # ---------------------
+    # PYQ FORM
+    # ---------------------
     with st.form("pyq_form", clear_on_submit=True):
         topic = st.text_input("Topic")
         subject = st.selectbox("Subject", SUBJECTS)
@@ -96,68 +98,74 @@ def render_pyq_capture():
 
         submitted = st.form_submit_button("Save PYQ")
 
-    if not submitted:
-        return
+    # ---------------------
+    # SAVE PYQ
+    # ---------------------
+    if submitted:
+        if not topic.strip():
+            st.error("Topic is required.")
+            return
 
-    if not topic.strip():
-        st.error("Topic is required.")
-        return
+        pyqs = data_layer.load_pyqs()
 
-    pyqs = data_layer.load_pyqs()
+        if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
+            st.warning("A PYQ with this topic already exists.")
+            return
 
-    if "pyq_image_paths" not in pyqs.columns:
-        pyqs["pyq_image_paths"] = ""
+        new_id = data_layer.safe_next_id(pyqs["id"])
 
-    # ---- DUPLICATE GUARD ----
-    if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
-        st.warning("A PYQ with this topic already exists.")
-        return
+        if pyq_images:
+            data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+            for f in pyq_images:
+                path = data_layer.IMAGE_DIR / f"pyq_{new_id}_{f.name}"
+                with open(path, "wb") as out:
+                    out.write(f.getbuffer())
+                image_paths.append(str(path))
 
-    new_id = data_layer.safe_next_id(pyqs["id"])
-
-    # ---- SAVE PYQ IMAGES ----
-    if pyq_images:
-        data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
-        for f in pyq_images:
-            path = data_layer.IMAGE_DIR / f"pyq_{new_id}_{f.name}"
-            with open(path, "wb") as out:
-                out.write(f.getbuffer())
-            image_paths.append(str(path))
-
-    # ---- CREATE PYQ ROW ----
-    row = data_layer.new_pyq_row(
-        topic=topic.strip(),
-        subject=subject,
-        trigger_line=trigger.strip(),
-        pyq_years=years.strip()
-    )
-
-    row["id"] = new_id
-    row["pyq_image_paths"] = ";".join(image_paths)
-    row["pyq_years"] = years.strip()
-
-    pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
-    data_layer.save_pyqs(pyqs)
-
-    st.success("✅ PYQ added successfully.")
-    st.markdown("---")
-
-    # =========================
-    # POST-SAVE ACTIONS
-    # =========================
-    if st.button("🧠 Create Study Card (Auto Draft)"):
-        st.session_state.auto_card_draft = generate_study_card_draft(
-            topic=row["topic"],
-            subject=row["subject"],
-            trigger=row["trigger_line"]
+        row = data_layer.new_pyq_row(
+            topic=topic.strip(),
+            subject=subject,
+            trigger_line=trigger.strip(),
+            pyq_years=years.strip()
         )
-        st.session_state.auto_card_topic_id = row["id"]
-        st.session_state.current_view = "study_cards"
-        st.session_state.app_mode = "Build"
-        st.rerun()
-        st.stop()
-        
 
-    if st.button("🏠 Back to Dashboard"):
-        st.session_state.current_view = "dashboard"
-        st.rerun()
+        row["id"] = new_id
+        row["pyq_image_paths"] = ";".join(image_paths)
+        row["pyq_years"] = years.strip()
+
+        pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
+        data_layer.save_pyqs(pyqs)
+
+        # 🔑 CRITICAL: Persist for next action
+        st.session_state.last_added_pyq = row
+
+        st.success("✅ PYQ added successfully.")
+
+    # ---------------------
+    # POST-SAVE ACTIONS
+    # ---------------------
+    if st.session_state.last_added_pyq:
+        st.markdown("---")
+
+        if st.button("🧠 Create Study Card (Auto Draft)"):
+            pyq = st.session_state.last_added_pyq
+
+            st.session_state.auto_card_draft = generate_study_card_draft(
+                topic=pyq["topic"],
+                subject=pyq["subject"],
+                trigger=pyq["trigger_line"]
+            )
+            st.session_state.auto_card_topic_id = pyq["id"]
+
+            st.session_state.current_view = "study_cards"
+            st.session_state.app_mode = "Build"
+
+            # Cleanup
+            st.session_state.last_added_pyq = None
+
+            st.rerun()
+
+        if st.button("🏠 Back to Dashboard"):
+            st.session_state.last_added_pyq = None
+            st.session_state.current_view = "dashboard"
+            st.rerun()
