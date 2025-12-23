@@ -32,7 +32,7 @@ PYQ_COLUMNS = [
     "subject",
     "pyq_years",
     "trigger_line",
-    "pyq_image_paths"
+    "pyq_image_paths", 
     "revision_count",
     "fail_count",
     "last_revised",
