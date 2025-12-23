@@ -63,11 +63,11 @@ def render_backup_page():
 
     buffer = data_layer.create_full_backup()
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-
+    filename = f"neet_pg_backup_{timestamp}.zip"
     st.download_button(
         label="⬇️ Download Full Backup",
         data=buffer,
-        filename = f"neet_pg_backup_{timestamp}.zip",
+        file_name=filename,
         mime="application/zip"
     )
 
