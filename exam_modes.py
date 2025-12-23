@@ -47,10 +47,12 @@ def render_rapid_review():
         pyqs = pyqs[pyqs.subject == subject]
 
     candidates = pyqs[
-        (pyqs.revision_count == 0) |
-        (pyqs.fail_count > 0) |
-        (data_layer.is_due(pyqs))
-    ]
+    (
+        (pyqs.get("revision_count", 0) == 0)
+        | (pyqs.get("fail_count", 0) > 0)
+        | (data_layer.is_due(pyqs))
+    )
+]
 
     if candidates.empty:
         st.info("No topics available for rapid review.")
