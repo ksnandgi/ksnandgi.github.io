@@ -112,14 +112,28 @@ def is_due(df: pd.DataFrame) -> pd.Series:
 def load_pyqs() -> pd.DataFrame:
     df = load_csv(PYQ_FILE, PYQ_COLUMNS, DATE_COLUMNS_PYQ)
 
-    # 🔑 HARD SCHEMA HEAL (SAFE FOR OLD CSVs)
+    # =========================
+    # 🔧 SCHEMA HEALING (CRITICAL)
+    # =========================
+
+    # Case 1: Corrupted merged column
+    if "pyq_image_pathsrevision_count" in df.columns:
+        # Split safely
+        df["pyq_image_paths"] = ""
+        df["revision_count"] = 0
+
+        # Drop corrupted column
+        df = df.drop(columns=["pyq_image_pathsrevision_count"])
+
+    # Case 2: Missing image column
+    if "pyq_image_paths" not in df.columns:
+        df["pyq_image_paths"] = ""
+
+    # Case 3: Missing revision_count
     if "revision_count" not in df.columns:
         df["revision_count"] = 0
 
-    if "fail_count" not in df.columns:
-        df["fail_count"] = 0
-
-    # 🔑 HARD SCHEMA HEAL (CRITICAL)
+    # Ensure numeric safety
     df["revision_count"] = df["revision_count"].fillna(0).astype(int)
     df["fail_count"] = df["fail_count"].fillna(0).astype(int)
 
