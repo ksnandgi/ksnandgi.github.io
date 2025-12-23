@@ -22,7 +22,6 @@ def init_exam_state():
     st.session_state.setdefault("sprint_index", 0)
     st.session_state.setdefault("last_sprint_subject", None)
 
-
 # =========================
 # RAPID REVIEW MODE
 # =========================
@@ -39,18 +38,25 @@ def render_rapid_review():
         st.info("No PYQs available.")
         return
 
+    # ---- Column safety ----
+    if "revision_count" not in pyqs.columns:
+        pyqs["revision_count"] = 0
+    if "fail_count" not in pyqs.columns:
+        pyqs["fail_count"] = 0
+    if "pyq_image_paths" not in pyqs.columns:
+        pyqs["pyq_image_paths"] = ""
+
     subjects = ["All"] + sorted(pyqs.subject.unique().tolist())
     subject = st.selectbox("Subject", subjects)
 
     if subject != "All":
         pyqs = pyqs[pyqs.subject == subject]
 
+    # ---- Candidate selection ----
     candidates = pyqs[
-        (
-            (pyqs.get("revision_count", 0) == 0)
-            | (pyqs.get("fail_count", 0) > 0)
-            | (data_layer.is_due(pyqs))
-        )
+        (pyqs["revision_count"] == 0)
+        | (pyqs["fail_count"] > 0)
+        | (data_layer.is_due(pyqs))
     ]
 
     if candidates.empty:
@@ -64,53 +70,48 @@ def render_rapid_review():
 
     row = candidates.iloc[0]
 
-    st.write("DEBUG pyq_image_paths:", repr(row.pyq_image_paths))
-
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
     content_shown = False
 
     # =========================
-    # STUDY CARD CONTENT
+    # STUDY CARD (PRIMARY)
     # =========================
     card_df = cards[cards.topic_id == row.id]
 
     if not card_df.empty:
         card = card_df.iloc[0]
 
-        if isinstance(card.bullets, str) and card.bullets.strip():
-            for line in card.bullets.splitlines():
-                st.write(line)
-            content_shown = True
-
+        # Images first (important for image-based recall)
         if isinstance(card.image_paths, str) and card.image_paths.strip():
             st.markdown("#### 🖼️ Study Card Images")
             for p in card.image_paths.split(";"):
                 st.image(p)
             content_shown = True
 
-    # =========================
-    # PYQ IMAGES (fallback)
-    # =========================
-    # =========================
-    # PYQ IMAGE DISPLAY (FIXED)
-    # =========================
-    if "pyq_image_paths" in pyqs.columns:
-        pyq_images = pyqs.loc[pyqs.id == row.id,   "pyq_image_paths"].values
-
-        if (
-            len(pyq_images) > 0
-            and isinstance(pyq_images[0], str)
-            and pyq_images[0].strip()
-        ):
-            st.markdown("#### 🖼️ PYQ Image")
-            for p in pyq_images[0].split(";"):
-                st.image(p)
+        if isinstance(card.bullets, str) and card.bullets.strip():
+            for line in card.bullets.splitlines():
+                st.write(line)
             content_shown = True
 
     # =========================
-    # TRIGGER LINE (last fallback)
+    # PYQ IMAGES (SECONDARY)
+    # =========================
+    pyq_images = pyqs.loc[pyqs.id == row.id, "pyq_image_paths"].values
+
+    if (
+        len(pyq_images) > 0
+        and isinstance(pyq_images[0], str)
+        and pyq_images[0].strip()
+    ):
+        st.markdown("#### 🖼️ PYQ Image")
+        for p in pyq_images[0].split(";"):
+            st.image(p)
+        content_shown = True
+
+    # =========================
+    # TRIGGER LINE (LAST FALLBACK)
     # =========================
     if not content_shown and isinstance(row.trigger_line, str) and row.trigger_line.strip():
         st.info("No study card yet for this topic.")
@@ -142,7 +143,6 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
             data_layer.save_pyqs(pyqs)
             st.rerun()
-
 
 # =========================
 # IMAGE SPRINT MODE
@@ -204,7 +204,6 @@ def render_image_sprint():
             time.sleep(delay)
             st.session_state.sprint_index += 1
             st.rerun()
-
 
 # =========================
 # MAIN ENTRY
