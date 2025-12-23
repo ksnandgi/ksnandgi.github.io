@@ -84,43 +84,43 @@ def render_pyq_capture():
 
         submitted = st.form_submit_button("Save PYQ")
 
-    if submitted:
-        if not topic.strip():
-            st.error("Topic is required.")
-            return
+ if submitted:
+    if not topic.strip():
+        st.error("Topic is required.")
+        return
 
-        pyqs = data_layer.load_pyqs()
+    pyqs = data_layer.load_pyqs()
 
-        row = data_layer.new_pyq_row(
-            topic=topic.strip(),
-            subject=subject,
-            trigger_line=trigger.strip(),
-            pyq_years=years.strip()
+    row = data_layer.new_pyq_row(
+        topic=topic.strip(),
+        subject=subject,
+        trigger_line=trigger.strip(),
+        pyq_years=years.strip()
+    )
+
+    row["id"] = data_layer.safe_next_id(pyqs["id"])
+    pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
+    data_layer.save_pyqs(pyqs)
+
+    st.success("✅ PYQ added successfully.")
+
+    # 🔑 AUTO STUDY CARD BUTTON (FIXED)
+    if st.button("🧠 Create Study Card (Auto Draft)"):
+        st.session_state.auto_card_draft = generate_study_card_draft(
+            topic=row["topic"],
+            subject=row["subject"],
+            trigger=row["trigger_line"]
         )
+        st.session_state.current_view = "study_cards"
+        st.session_state.app_mode = "Build"
+        st.rerun()
 
-        row["id"] = data_layer.safe_next_id(pyqs["id"])
-        pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
-        data_layer.save_pyqs(pyqs)
+    col1, col2 = st.columns(2)
 
-        st.success("✅ PYQ added successfully.")
+    with col1:
+        st.info("Form cleared. You can add another PYQ.")
 
-        if st.button("🧠 Create Study Card (Auto Draft)"):
-           st.session_state.auto_card_draft = generate_study_card_draft(
-              topic=topic,
-              subject=subject,
-              trigger=trigger_line
-           )
-           st.session_state.auto_card_topic_id = new_id
-           st.session_state.current_view = "study_cards"
-           st.session_state.app_mode = "Build"
-           st.rerun()
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.info("Form cleared. You can add another PYQ.")
-
-        with col2:
-            if st.button("🏠 Back to Dashboard"):
-                st.session_state.current_view = "dashboard"
-                st.rerun()
+    with col2:
+        if st.button("🏠 Back to Dashboard"):
+            st.session_state.current_view = "dashboard"
+            st.rerun()
