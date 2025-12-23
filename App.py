@@ -108,7 +108,7 @@ st.markdown("#### 📘 NEET PG Study System")
 
 if (
     st.session_state.current_view not in ["backup", "restore"]
-    and not st.session_state.get("auto_card_draft")
+    and st.session_state.current_view!="study_cards"
 ):
     render_mode_bar()
 
