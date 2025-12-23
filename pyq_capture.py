@@ -99,6 +99,11 @@ def render_pyq_capture():
 
         pyqs = data_layer.load_pyqs()
 
+        # ---- SOFT DUPLICATE GUARD ----
+        if not pyqs[pyqs.topic.str.lower() == topic.strip().lower()].empty:
+            st.warning("A PYQ with this topic already exists.")
+            return
+
         row = data_layer.new_pyq_row(
             topic=topic.strip(),
             subject=subject,
@@ -114,13 +119,14 @@ def render_pyq_capture():
 
         st.markdown("---")
 
-        # 🔑 AUTO STUDY CARD BUTTON
+        # 🔑 AUTO STUDY CARD BUTTON (FIXED)
         if st.button("🧠 Create Study Card (Auto Draft)"):
             st.session_state.auto_card_draft = generate_study_card_draft(
                 topic=row["topic"],
                 subject=row["subject"],
                 trigger=row["trigger_line"]
             )
+            st.session_state.auto_card_topic_id = row["id"]  # 🔑 CRITICAL
             st.session_state.current_view = "study_cards"
             st.session_state.app_mode = "Build"
             st.rerun()
