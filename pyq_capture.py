@@ -104,6 +104,17 @@ def render_pyq_capture():
 
         st.success("✅ PYQ added successfully.")
 
+        if st.button("🧠 Create Study Card (Auto Draft)"):
+           st.session_state.auto_card_draft = generate_study_card_draft(
+              topic=topic,
+              subject=subject,
+              trigger=trigger_line
+           )
+           st.session_state.auto_card_topic_id = new_id
+           st.session_state.current_view = "study_cards"
+           st.session_state.app_mode = "Build"
+           st.rerun()
+
         col1, col2 = st.columns(2)
 
         with col1:
