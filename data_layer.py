@@ -110,7 +110,13 @@ def is_due(df: pd.DataFrame) -> pd.Series:
 # =========================
 
 def load_pyqs() -> pd.DataFrame:
-    return load_csv(PYQ_FILE, PYQ_COLUMNS, DATE_COLUMNS_PYQ)
+    df = load_csv(PYQ_FILE, PYQ_COLUMNS, DATE_COLUMNS_PYQ)
+
+    # 🔑 HARD SCHEMA HEAL (CRITICAL)
+    df["revision_count"] = df["revision_count"].fillna(0).astype(int)
+    df["fail_count"] = df["fail_count"].fillna(0).astype(int)
+
+    return df
 
 
 def load_cards() -> pd.DataFrame:
