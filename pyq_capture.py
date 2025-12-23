@@ -3,6 +3,10 @@ import pandas as pd
 
 import data_layer
 
+# =========================
+# CONSTANTS
+# =========================
+
 SUBJECTS = [
     "Medicine", "Surgery", "ObG", "Pediatrics",
     "Pathology", "Pharmacology", "Microbiology",
@@ -45,13 +49,11 @@ CARD_TEMPLATES = {
     ],
 }
 
-
 def generate_study_card_draft(topic: str, subject: str, trigger: str) -> str:
-    template = CARD_TEMPLATES.get(subject, [
-        "Definition",
-        "Key points",
-        "Clinical relevance"
-    ])
+    template = CARD_TEMPLATES.get(
+        subject,
+        ["Definition", "Key points", "Clinical relevance"]
+    )
 
     bullets = []
 
@@ -65,14 +67,19 @@ def generate_study_card_draft(topic: str, subject: str, trigger: str) -> str:
 
     return "\n".join(bullets)
 
+# =========================
+# MAIN UI
+# =========================
 
 def render_pyq_capture():
+    # ---- MODE GUARD ----
     if st.session_state.app_mode != "Build":
         st.info("Switch to 🛠️ Build Mode to add PYQs.")
         return
 
     st.subheader("➕ Add PYQ")
 
+    # ---- PYQ FORM ----
     with st.form("pyq_form", clear_on_submit=True):
         topic = st.text_input("Topic")
         subject = st.selectbox("Subject", SUBJECTS)
@@ -84,43 +91,46 @@ def render_pyq_capture():
 
         submitted = st.form_submit_button("Save PYQ")
 
- if submitted:
-    if not topic.strip():
-        st.error("Topic is required.")
-        return
+    # ---- AFTER SUBMIT ----
+    if submitted:
+        if not topic.strip():
+            st.error("Topic is required.")
+            return
 
-    pyqs = data_layer.load_pyqs()
+        pyqs = data_layer.load_pyqs()
 
-    row = data_layer.new_pyq_row(
-        topic=topic.strip(),
-        subject=subject,
-        trigger_line=trigger.strip(),
-        pyq_years=years.strip()
-    )
-
-    row["id"] = data_layer.safe_next_id(pyqs["id"])
-    pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
-    data_layer.save_pyqs(pyqs)
-
-    st.success("✅ PYQ added successfully.")
-
-    # 🔑 AUTO STUDY CARD BUTTON (FIXED)
-    if st.button("🧠 Create Study Card (Auto Draft)"):
-        st.session_state.auto_card_draft = generate_study_card_draft(
-            topic=row["topic"],
-            subject=row["subject"],
-            trigger=row["trigger_line"]
+        row = data_layer.new_pyq_row(
+            topic=topic.strip(),
+            subject=subject,
+            trigger_line=trigger.strip(),
+            pyq_years=years.strip()
         )
-        st.session_state.current_view = "study_cards"
-        st.session_state.app_mode = "Build"
-        st.rerun()
 
-    col1, col2 = st.columns(2)
+        row["id"] = data_layer.safe_next_id(pyqs["id"])
+        pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
+        data_layer.save_pyqs(pyqs)
 
-    with col1:
-        st.info("Form cleared. You can add another PYQ.")
+        st.success("✅ PYQ added successfully.")
 
-    with col2:
-        if st.button("🏠 Back to Dashboard"):
-            st.session_state.current_view = "dashboard"
+        st.markdown("---")
+
+        # 🔑 AUTO STUDY CARD BUTTON
+        if st.button("🧠 Create Study Card (Auto Draft)"):
+            st.session_state.auto_card_draft = generate_study_card_draft(
+                topic=row["topic"],
+                subject=row["subject"],
+                trigger=row["trigger_line"]
+            )
+            st.session_state.current_view = "study_cards"
+            st.session_state.app_mode = "Build"
             st.rerun()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.info("Form cleared. You can add another PYQ.")
+
+        with col2:
+            if st.button("🏠 Back to Dashboard"):
+                st.session_state.current_view = "dashboard"
+                st.rerun()
