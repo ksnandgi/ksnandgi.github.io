@@ -32,6 +32,7 @@ PYQ_COLUMNS = [
     "subject",
     "pyq_years",
     "trigger_line",
+    "pyq_image_paths"
     "revision_count",
     "fail_count",
     "last_revised",
@@ -148,6 +149,7 @@ def new_pyq_row(
         "subject": subject,
         "pyq_years": pyq_years.strip() if pyq_years else "",
         "trigger_line": trigger_line.strip(),
+        "pyq_image_paths":"",
         "revision_count": 0,
         "fail_count": 0,
         "last_revised": None,
