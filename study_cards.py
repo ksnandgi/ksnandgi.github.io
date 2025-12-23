@@ -5,7 +5,6 @@ Module 2 — Study Cards
 import streamlit as st
 import pandas as pd
 import re
-import os
 
 import data_layer
 
@@ -49,7 +48,7 @@ def save_uploaded_images(files, topic_id: int) -> list[str]:
 # =========================
 
 def render_study_cards():
-    # 🔑 HARD VIEW GUARD
+    # ---- VIEW GUARD ----
     if st.session_state.current_view != "study_cards":
         return
 
@@ -65,7 +64,6 @@ def render_study_cards():
 
     if pyqs.empty:
         st.info("No PYQ topics found yet.")
-        st.markdown("➡️ Add PYQs first, then come back to create Study Cards.")
         return
 
     # =========================
@@ -88,13 +86,23 @@ def render_study_cards():
 
     filtered = filtered.copy()
     filtered["label"] = filtered["topic"] + " (" + filtered["subject"] + ")"
-
     topic_map = dict(zip(filtered["label"], filtered["id"]))
 
-    selected_label = st.selectbox(
-        "Select Topic",
-        list(topic_map.keys())
-    )
+    # =========================
+    # AUTO-SELECT FROM PYQ → STUDY CARD
+    # =========================
+    auto_topic_id = st.session_state.get("auto_card_topic_id")
+
+    if auto_topic_id and auto_topic_id in filtered["id"].values:
+        selected_label = filtered.loc[
+            filtered.id == auto_topic_id, "label"
+        ].iloc[0]
+        st.session_state.pop("auto_card_topic_id", None)
+    else:
+        selected_label = st.selectbox(
+            "Select Topic",
+            list(topic_map.keys())
+        )
 
     topic_id = topic_map[selected_label]
     topic_row = pyqs[pyqs.id == topic_id].iloc[0]
@@ -129,21 +137,17 @@ def render_study_cards():
         with col1:
             if st.button("✏️ Edit Card"):
                 st.session_state.edit_card = True
-                st.session_state.focus_mode = True
                 st.rerun()
 
         with col2:
             if st.button("🗑️ Delete Card", type="secondary"):
                 data_layer.delete_card(topic_id)
-                st.success("Study card deleted.")
                 st.session_state.edit_card = False
-                st.session_state.focus_mode = False
                 st.rerun()
 
         with col3:
             if st.button("← Back"):
                 st.session_state.edit_card = False
-                st.session_state.focus_mode = False
                 st.rerun()
 
         return
@@ -151,10 +155,8 @@ def render_study_cards():
     # =========================
     # CREATE / EDIT MODE
     # =========================
-
     st.markdown("### 🧠 Key Points")
 
-    # 🔑 AUTO-DRAFT PRIORITY
     if st.session_state.get("auto_card_draft"):
         default_bullets = st.session_state.auto_card_draft
     elif not card_df.empty:
@@ -202,19 +204,14 @@ def render_study_cards():
                 external_url=""
             )
 
-            st.success("Study card saved.")
-
-            # 🔑 CLEAR DRAFT STATE
             st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
-
             st.session_state.edit_card = False
-            st.session_state.focus_mode = False
             st.rerun()
 
     with col2:
         if st.button("← Cancel"):
+            st.session_state.pop("draft_bullets", None)
             st.session_state.pop("auto_card_draft", None)
             st.session_state.edit_card = False
-            st.session_state.focus_mode = False
             st.rerun()
