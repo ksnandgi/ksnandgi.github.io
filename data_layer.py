@@ -112,6 +112,13 @@ def is_due(df: pd.DataFrame) -> pd.Series:
 def load_pyqs() -> pd.DataFrame:
     df = load_csv(PYQ_FILE, PYQ_COLUMNS, DATE_COLUMNS_PYQ)
 
+    # 🔑 HARD SCHEMA HEAL (SAFE FOR OLD CSVs)
+    if "revision_count" not in df.columns:
+        df["revision_count"] = 0
+
+    if "fail_count" not in df.columns:
+        df["fail_count"] = 0
+
     # 🔑 HARD SCHEMA HEAL (CRITICAL)
     df["revision_count"] = df["revision_count"].fillna(0).astype(int)
     df["fail_count"] = df["fail_count"].fillna(0).astype(int)
