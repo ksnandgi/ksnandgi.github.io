@@ -110,42 +110,40 @@ def render_pyq_capture():
             st.warning("A PYQ with this topic already exists.")
             return
 
-        # ---- SAVE PYQ IMAGES ----
-        image_paths = []
+        # 🔑 Generate PYQ ID FIRST
+        new_id = data_layer.safe_next_id(pyqs["id"])
 
+        # 🔑 Save PYQ images (ONCE)
+        image_paths = []
         if pyq_images:
-            data_layer.IMAGE_DIR.mkdir(parents=True,     exist_ok=True)
+            data_layer.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
             for f in pyq_images:
-                path = data_layer.IMAGE_DIR / f"pyq_{topic.strip()}_{f.name}"
+                path = data_layer.IMAGE_DIR / f"pyq_{new_id}_{f.name}"
                 with open(path, "wb") as out:
                     out.write(f.getbuffer())
                 image_paths.append(str(path))
 
-        new_id = data_layer.safe_next_id(pyqs["id"])
-
-        image_paths = save_uploaded_pyq_images(images, new_id) if images else []
-
+        # Create PYQ row
         row = data_layer.new_pyq_row(
-            topic=topic,
+            topic=topic.strip(),
             subject=subject,
-            trigger_line=trigger,
-            pyq_years=years
+            trigger_line=trigger.strip(),
+            pyq_years=years.strip()
         )
 
         row["id"] = new_id
         row["pyq_image_paths"] = ";".join(image_paths)
 
-        row["id"] = data_layer.safe_next_id(pyqs["id"])
         pyqs = pd.concat([pyqs, pd.DataFrame([row])], ignore_index=True)
         data_layer.save_pyqs(pyqs)
 
-        # 🔑 Persist last added PYQ for next action
+        # Persist for next action
         st.session_state.last_added_pyq = row
 
         st.success("✅ PYQ added successfully.")
 
     # =========================
-    # POST-SAVE ACTIONS (STABLE)
+    # POST-SAVE ACTIONS
     # =========================
     if st.session_state.get("last_added_pyq"):
         st.markdown("---")
@@ -163,9 +161,7 @@ def render_pyq_capture():
             st.session_state.current_view = "study_cards"
             st.session_state.app_mode = "Build"
 
-            # Cleanup to avoid repeat
             st.session_state.pop("last_added_pyq", None)
-
             st.rerun()
 
         col1, col2 = st.columns(2)
