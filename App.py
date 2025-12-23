@@ -3,8 +3,6 @@ import time
 
 from datetime import datetime
 
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-
 # =========================
 # APP CONFIG (MUST BE FIRST)
 # =========================
@@ -64,6 +62,7 @@ def render_backup_page():
     st.info("Download a full backup of your data. Keep this file safe.")
 
     buffer = data_layer.create_full_backup()
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     st.download_button(
         label="⬇️ Download Full Backup",
