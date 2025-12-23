@@ -107,7 +107,7 @@ def render_restore_page():
 st.markdown("#### 📘 NEET PG Study System")
 
 if (
-    st.session_state.current_view not in ["backup", "restore"]:
+    st.session_state.current_view not in ["backup", "restore"]
     and not st.session_state.get("auto_card_draft")
 ):
     render_mode_bar()
