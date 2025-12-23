@@ -10,6 +10,61 @@ SUBJECTS = [
     "Radiology", "Dermatology"
 ]
 
+# =========================
+# AUTO STUDY CARD DRAFT
+# =========================
+
+CARD_TEMPLATES = {
+    "Medicine": [
+        "Definition",
+        "Etiology / Causes",
+        "Clinical features",
+        "Complications",
+        "Management"
+    ],
+    "Surgery": [
+        "Definition",
+        "Etiology",
+        "Clinical features",
+        "Indications for surgery",
+        "Complications"
+    ],
+    "Pharmacology": [
+        "Drug class",
+        "Mechanism of action",
+        "Uses",
+        "Adverse effects",
+        "Contraindications"
+    ],
+    "Anatomy": [
+        "Definition / Location",
+        "Relations",
+        "Blood supply",
+        "Nerve supply",
+        "Clinical significance"
+    ],
+}
+
+
+def generate_study_card_draft(topic: str, subject: str, trigger: str) -> str:
+    template = CARD_TEMPLATES.get(subject, [
+        "Definition",
+        "Key points",
+        "Clinical relevance"
+    ])
+
+    bullets = []
+
+    for section in template:
+        if section == "Definition":
+            bullets.append(f"• {section}: {topic}")
+        elif "Clinical" in section and trigger:
+            bullets.append(f"• {section}: {trigger}")
+        else:
+            bullets.append(f"• {section}:")
+
+    return "\n".join(bullets)
+
 
 def render_pyq_capture():
     if st.session_state.app_mode != "Build":
