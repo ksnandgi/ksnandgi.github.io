@@ -192,6 +192,7 @@ def render_study_cards():
             if st.button("🗑️ Delete Card", type="secondary"):
                 data_layer.delete_card(topic_id)
                 st.session_state.edit_card = False
+                st.session_state.current_view = "dashboard"
                 st.rerun()
 
         with col3:
@@ -207,6 +208,7 @@ def render_study_cards():
     # -------------------------
     st.markdown("### 🧠 Key Points")
 
+    # 🔑 Priority order (critical)
     if st.session_state.get("auto_card_draft"):
         default_bullets = st.session_state.auto_card_draft
     elif not card_df.empty:
