@@ -3,12 +3,10 @@ Module 4 — Exam Modes
 
 Responsibilities:
 - Rapid Review Mode
-- Image Sprint Mode (auto-advance)
-- Exam-phase guardrails
-- Exam Day Mode
-- Soft daily cap
+- Image Sprint Mode (one item at a time)
 
 Read-only. No content creation.
+(Session suppression & exam-day mode intentionally disabled during development)
 """
 
 import streamlit as st
@@ -22,18 +20,15 @@ import data_layer
 # =========================
 
 def init_exam_state():
-    st.session_state.setdefault("image_seen", set())
-    st.session_state.setdefault("sprint_count_today", 0)
-    st.session_state.setdefault("last_sprint_date", None)
-    st.session_state.setdefault("exam_seen", set())
     st.session_state.setdefault("sprint_index", 0)
+    st.session_state.setdefault("last_sprint_subject", None)
+
 
 # =========================
 # RAPID REVIEW MODE
 # =========================
 
 def render_rapid_review():
-    st.write("Debug:Entered Rapid review")
     st.subheader("⚡ Rapid Review")
 
     init_exam_state()
@@ -52,16 +47,13 @@ def render_rapid_review():
         pyqs = pyqs[pyqs.subject == subject]
 
     candidates = pyqs[
-        (
-            (pyqs.revision_count == 0)
-            | (pyqs.fail_count > 0)
-            | (data_layer.is_due(pyqs))
-        )
-        & (~pyqs.id.isin(st.session_state.exam_seen))
+        (pyqs.revision_count == 0) |
+        (pyqs.fail_count > 0) |
+        (data_layer.is_due(pyqs))
     ]
 
     if candidates.empty:
-        st.info("No more topics in this exam session.")
+        st.info("No topics available for rapid review.")
         return
 
     candidates = candidates.sort_values(
@@ -74,7 +66,6 @@ def render_rapid_review():
     st.markdown(f"### {row.topic}")
     st.caption(row.subject)
 
-    # ----- Optional study card -----
     card_df = cards[cards.topic_id == row.id]
 
     if not card_df.empty:
@@ -101,7 +92,6 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
             data_layer.save_pyqs(pyqs)
-         #  st.session_state.exam_seen.add(row.id)
             st.rerun()
 
     with col2:
@@ -110,7 +100,6 @@ def render_rapid_review():
             pyqs.loc[pyqs.id == row.id, "last_revised"] = date.today()
 
             data_layer.save_pyqs(pyqs)
-          # st.session_state.exam_seen.add(row.id)
             st.rerun()
 
 
@@ -146,7 +135,7 @@ def render_image_sprint():
     auto = st.toggle("Auto-advance", value=False)
 
     # Reset sprint if subject changes
-    if st.session_state.get("last_sprint_subject") != subject:
+    if st.session_state.last_sprint_subject != subject:
         st.session_state.sprint_index = 0
         st.session_state.last_sprint_subject = subject
 
@@ -186,12 +175,11 @@ def render_exam_modes():
         st.info("Switch to ⚡ Exam Mode to access exam features.")
         return
 
-    # Decide tool purely based on current_view
     view = st.session_state.get("current_view")
 
     if view == "image_sprint":
         render_image_sprint()
-    elif view =="rapid_review":
+    elif view == "rapid_review":
         render_rapid_review()
     else:
-        st.info("Select an exam tool to begin")
+        st.info("Select an exam tool to begin.")
