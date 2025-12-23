@@ -116,11 +116,14 @@ def load_pyqs() -> pd.DataFrame:
     # 🔧 SCHEMA HEALING (CRITICAL)
     # =========================
 
-    # Case 1: Corrupted merged column
+    # Case 1: Corrupted merged column (image paths accidentally merged)
     if "pyq_image_pathsrevision_count" in df.columns:
-        # Split safely
-        df["pyq_image_paths"] = ""
-        df["revision_count"] = 0
+        # Salvage image paths
+        df["pyq_image_paths"] = df["pyq_image_pathsrevision_count"]
+
+        # Ensure revision_count exists separately
+        if "revision_count" not in df.columns:
+            df["revision_count"] = 0
 
         # Drop corrupted column
         df = df.drop(columns=["pyq_image_pathsrevision_count"])
@@ -132,6 +135,10 @@ def load_pyqs() -> pd.DataFrame:
     # Case 3: Missing revision_count
     if "revision_count" not in df.columns:
         df["revision_count"] = 0
+
+    # Case 4: Missing fail_count (defensive)
+    if "fail_count" not in df.columns:
+        df["fail_count"] = 0
 
     # Ensure numeric safety
     df["revision_count"] = df["revision_count"].fillna(0).astype(int)
